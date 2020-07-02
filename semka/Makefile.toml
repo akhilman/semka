@@ -30,7 +30,8 @@ description = "Copy static files"
 script_runner = "@shell"
 script = [
 '''
-cp -ruv static dist
+mkdir -p dist
+cp -ruv static/* dist/
 cp -uv static/\~/_app/index.html dist/\~/
 '''
 ]
