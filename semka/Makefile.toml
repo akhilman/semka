@@ -25,17 +25,36 @@ dependencies = ["fmt", "clippy", "test_h_firefox"]
 
 # ---- BUILD ----
 
-[tasks.build]
+[tasks.copy_static]
+description = "Copy static files"
+script_runner = "@shell"
+script = [
+'''
+cp -ruv static dist
+cp -uv static/\~/_app/index.html dist/\~/
+'''
+]
+
+[tasks.cargo_build]
 description = "Build with wasm-pack"
 install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
 command = "wasm-pack"
 args = ["build", "--target", "web", "--out-name", "package", "--dev", "--out-dir", "dist/~/_app"]
 
-[tasks.build_release]
+[tasks.cargo_build_release]
 description = "Build with wasm-pack in release mode"
 install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
 command = "wasm-pack"
 args = ["build", "--target", "web", "--out-name", "package", "--out-dir", "dist/~/_app"]
+
+[tasks.build]
+description = "Build"
+run_task = { name = ["copy_static", "cargo_build"], parallel = true }
+
+[tasks.build_release]
+description = "Build in release mode"
+run_task = { name = ["copy_static", "cargo_build_release"], parallel = true }
+
 
 # ---- LINT ----
 
@@ -69,3 +88,20 @@ description = "Run tests. Ex: 'cargo make test firefox'. Test envs: [chrome, fir
 install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
 command = "wasm-pack"
 args = ["test", "--${@}"]
+
+# ---- CLEAN ----
+
+[tasks.clean]
+description = "Clean repository"
+dependencies = ["clean_cargo", "clean_dist"]
+
+[tasks.clean_cargo]
+command = "cargo"
+args = ["clean"]
+
+[tasks.clean_dists]
+script_runner = "@shell"
+script = ['rm -rv dist']
+
+
+
