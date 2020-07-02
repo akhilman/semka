@@ -6,8 +6,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
-    <script>
-      // Set page base path
+  </head>
+
+  <body>
+    <section id="app"></section>
+    <script type="module">
       let pathParts = document.location.pathname.split("/");
       // first part is always "", last part ether "index.html" or ""
       pathParts = pathParts.slice(1, pathParts.length - 1);
@@ -17,22 +20,13 @@
         }
         pathParts.pop();
       }
-      console.log(document.location.pathname, pathParts, pathParts.length);
-      let baseURL = new URL(document.location);
-      baseURL.pathname =
-        pathParts.length === 0 ? "/" : `/${pathParts.join("/")}/`;
-      console.debug(`Application base URL is "${baseURL}"`);
-      let baseEl = document.createElement("base");
-      baseEl.setAttribute("href", baseURL);
-      document.getElementsByTagName("head")[0].appendChild(baseEl);
-    </script>
-  </head>
-
-  <body>
-    <section id="app"></section>
-    <script type="module">
-      import init from "./_app/package.js";
-      init("./_app/package_bg.wasm");
+      let basePath = pathParts.length === 0 ? "" : `/${pathParts.join("/")}`;
+      console.debug(`Application base URL is "${basePath}/"`);
+      import(`${basePath}/_app/package.js`)
+        .then(({ default: init }) => {
+          return init(`${basePath}/_app/package_bg.wasm`);
+        })
+        .catch((error) => console.error("Can not load application", error));
     </script>
   </body>
 </html>
