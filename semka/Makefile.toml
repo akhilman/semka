@@ -90,6 +90,7 @@ install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V
 command = "wasm-pack"
 args = ["test", "--${@}"]
 
+
 # ---- CLEAN ----
 
 [tasks.clean]
@@ -101,10 +102,10 @@ private = true
 command = "cargo"
 args = ["clean"]
 
-[tasks.clean_dists]
+[tasks.clean_dist]
 private = true
 script_runner = "@shell"
-script = ['rm -rv dist']
+script = ['rm -r dist']
 
 
 
