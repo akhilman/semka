@@ -105,7 +105,7 @@ args = ["clean"]
 [tasks.clean_dist]
 private = true
 script_runner = "@shell"
-script = ['rm -r dist']
+script = ['rm -fr dist']
 
 
 
