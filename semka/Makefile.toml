@@ -25,7 +25,27 @@ dependencies = ["fmt", "clippy", "test_h_firefox"]
 
 # ---- BUILD ----
 
-[tasks.copy_static]
+[tasks.build]
+description = "Build"
+run_task = { name = ["build-copy_static", "build-wasm_pack"], parallel = true }
+
+[tasks.build_release]
+description = "Build in release mode"
+run_task = { name = ["build-copy_static", "build_release-wasm_pack"], parallel = true }
+
+[tasks.build-wasm_pack]
+description = "Build with wasm-pack"
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
+command = "wasm-pack"
+args = ["build", "--target", "web", "--out-name", "package", "--dev", "--out-dir", "dist/~/_app"]
+
+[tasks.build_release-wasm_pack]
+description = "Build with wasm-pack in release mode"
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
+command = "wasm-pack"
+args = ["build", "--target", "web", "--out-name", "package", "--out-dir", "dist/~/_app"]
+
+[tasks.build-copy_static]
 description = "Copy static files"
 script_runner = "@shell"
 script = [
@@ -35,26 +55,6 @@ cp -ruv static/* dist/
 cp -uv static/\~/_app/index.html dist/\~/
 '''
 ]
-
-[tasks.cargo_build]
-description = "Build with wasm-pack"
-install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
-command = "wasm-pack"
-args = ["build", "--target", "web", "--out-name", "package", "--dev", "--out-dir", "dist/~/_app"]
-
-[tasks.cargo_build_release]
-description = "Build with wasm-pack in release mode"
-install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V" }
-command = "wasm-pack"
-args = ["build", "--target", "web", "--out-name", "package", "--out-dir", "dist/~/_app"]
-
-[tasks.build]
-description = "Build"
-run_task = { name = ["copy_static", "cargo_build"], parallel = true }
-
-[tasks.build_release]
-description = "Build in release mode"
-run_task = { name = ["copy_static", "cargo_build_release"], parallel = true }
 
 
 # ---- LINT ----
@@ -97,7 +97,7 @@ args = ["test", "--${@}"]
 description = "Clean repository"
 dependencies = ["clean_cargo", "clean_dist"]
 
-[tasks.clean_cargo]
+[tasks.clean-cargo]
 private = true
 command = "cargo"
 args = ["clean"]
