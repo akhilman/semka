@@ -97,10 +97,12 @@ description = "Clean repository"
 dependencies = ["clean_cargo", "clean_dist"]
 
 [tasks.clean_cargo]
+private = true
 command = "cargo"
 args = ["clean"]
 
 [tasks.clean_dists]
+private = true
 script_runner = "@shell"
 script = ['rm -rv dist']
 
