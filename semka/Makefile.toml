@@ -56,7 +56,6 @@ cp -uv static/\~/_app/index.html dist/\~/
 '''
 ]
 
-
 # ---- LINT ----
 
 [tasks.clippy]
@@ -70,7 +69,6 @@ description = "Format with rustfmt"
 install_crate = { rustup_component_name = "rustfmt", binary = "rustfmt", test_arg = "-V" }
 command = "cargo"
 args = ["fmt"]
-
 
 # ---- TEST ----
 
@@ -90,7 +88,6 @@ install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "-V
 command = "wasm-pack"
 args = ["test", "--${@}"]
 
-
 # ---- CLEAN ----
 
 [tasks.clean]
@@ -107,5 +104,10 @@ private = true
 script_runner = "@shell"
 script = ['rm -fr dist']
 
+# ---- RELEASE ----
 
-
+[tasks.publish]
+description = "Upload to IPFS"
+dependencies = ["build_release"]
+command = "bash"
+args = ["scripts/release.sh", "dist"]
