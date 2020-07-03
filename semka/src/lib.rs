@@ -10,8 +10,9 @@ use seed::{prelude::*, *};
 // ------ ------
 
 // `init` describes what should happen when your app started.
-fn init(_: Url, _: &mut impl Orders<Msg>) -> Model {
-    Model::default()
+fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
+    let base_path = Url::new().set_path(orders.clone_base_path().iter());
+    Model::new(base_path)
 }
 
 // ------ ------
@@ -19,7 +20,15 @@ fn init(_: Url, _: &mut impl Orders<Msg>) -> Model {
 // ------ ------
 
 // `Model` describes our app state.
-type Model = i32;
+struct Model {
+    base_path: Url,
+}
+
+impl Model {
+    fn new(base_path: Url) -> Self {
+        Model { base_path }
+    }
+}
 
 // ------ ------
 //    Update
@@ -34,9 +43,9 @@ enum Msg {
 
 // `update` describes how to handle each `Msg`.
 fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
-    match msg {
-        Msg::Increment => *model += 1,
-    }
+    // match msg {
+    //     Msg::Increment => *model += 1,
+    // }
 }
 
 // ------ ------
@@ -48,9 +57,10 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
 // `view` describes what to display.
 fn view(model: &Model) -> Node<Msg> {
     div![
-        "This is a counter: ",
         C!["counter"],
-        button![model, ev(Ev::Click, |_| Msg::Increment),],
+        div![span!["Current url: "], span![Url::current().to_string()],],
+        div![span!["Base url: "], span![model.base_path.to_string()],],
+        // button![model, ev(Ev::Click, |_| Msg::Increment),],
     ]
 }
 
