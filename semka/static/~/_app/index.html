@@ -11,22 +11,46 @@
   <body>
     <section id="app"></section>
     <script type="module">
-      let pathParts = document.location.pathname.split("/");
-      // first part is always "", last part ether "index.html" or ""
-      pathParts = pathParts.slice(1, pathParts.length - 1);
-      for (let i = pathParts.length - 1; i >= 0; i--) {
-        if (pathParts[i].match(/~.*/)) {
-          break;
-        }
-        pathParts.pop();
+      function onError(error) {
+        console.error(error);
+        let appEl = document.getElementById("app");
+        let errorEl = document.createElement("div");
+        errorEl.innerText = String(error);
+        appEl.insertBefore(errorEl, appEl.childNodes[0]);
       }
-      let basePath = pathParts.length === 0 ? "" : `/${pathParts.join("/")}`;
-      console.debug(`Application base URL is "${basePath}/"`);
-      import(`${basePath}/_app/package.js`)
-        .then(({ default: init }) => {
-          return init(`${basePath}/_app/package_bg.wasm`);
-        })
-        .catch((error) => console.error("Can not load application", error));
+      async function init() {
+        let path = document.location.pathname;
+        let manifest = null;
+        path = path.match(/(.*\/).*/)[1]; // remove file name
+        while (path !== "") {
+          path = path.match(/(.*)\/.*?/)[1];
+          let rep = await fetch(`${path}/manifest.json`);
+          if (rep.ok) {
+            let maybeManifest = await rep.json();
+            if (maybeManifest["rootDocument"] != undefined) {
+              manifest = maybeManifest;
+              break;
+            }
+          }
+        }
+        if (manifest !== null) {
+          console.debug(`Application base URL is "${path}/"`);
+          let metaEl = document.getElementsByTagName("head")[0];
+          let rootManifestEl = document.createElement("root-manifest");
+          manifest["rootPath"] = path;
+          rootManifestEl.innerText = JSON.stringify(manifest);
+          headEl.appendChild(rootManifestEl);
+          try {
+            let { default: init } = await import(`${path}/_app/package.js`);
+            init(`${path}/_app/package_bg.wasm`);
+          } catch (error) {
+            onError(`Can not load application: ${error}`);
+          }
+        } else {
+          onError("Can not load site manifest");
+        }
+      }
+      init();
     </script>
   </body>
 </html>
