@@ -92,15 +92,15 @@ args = ["test", "--${@}"]
 
 [tasks.clean]
 description = "Clean repository"
-dependencies = ["clean_cargo", "clean_dist"]
+dependencies = ["clean-cargo", "clean-dist"]
 
 [tasks.clean-cargo]
-private = true
+description = "Clean build files"
 command = "cargo"
 args = ["clean"]
 
-[tasks.clean_dist]
-private = true
+[tasks.clean-dist]
+description = "Clean dist files"
 script_runner = "@shell"
 script = ['rm -fr dist']
 
