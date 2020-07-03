@@ -110,4 +110,4 @@ script = ['rm -fr dist']
 description = "Upload to IPFS"
 dependencies = ["build_release"]
 command = "bash"
-args = ["scripts/release.sh", "dist"]
+args = ["scripts/publish.sh", "dist"]
