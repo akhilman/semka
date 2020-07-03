@@ -11,7 +11,7 @@
   <body>
     <section id="app"></section>
     <script type="module">
-      function onError(error) {
+      function showError(error) {
         console.error(error);
         let appEl = document.getElementById("app");
         let errorEl = document.createElement("div");
@@ -20,34 +20,33 @@
       }
       async function init() {
         let path = document.location.pathname;
-        let manifest = null;
+        let basePath = null;
         path = path.match(/(.*\/).*/)[1]; // remove file name
         while (path !== "") {
           path = path.match(/(.*)\/.*?/)[1];
           let rep = await fetch(`${path}/manifest.json`);
           if (rep.ok) {
-            let maybeManifest = await rep.json();
-            if (maybeManifest["rootDocument"] != undefined) {
-              manifest = maybeManifest;
+            let manifest = await rep.json();
+            if (manifest["rootDocument"] != undefined) {
+              basePath = path;
               break;
             }
           }
         }
-        if (manifest !== null) {
-          console.debug(`Application base URL is "${path}/"`);
-          let metaEl = document.getElementsByTagName("head")[0];
-          let rootManifestEl = document.createElement("root-manifest");
-          manifest["rootPath"] = path;
-          rootManifestEl.innerText = JSON.stringify(manifest);
-          headEl.appendChild(rootManifestEl);
+        if (basePath !== null) {
+          console.debug(`Application base path is "${basePath}/"`);
+          let headEl = document.getElementsByTagName("head")[0];
+          let baseEl = document.createElement("base");
+          baseEl.setAttribute("href", `${basePath}/`);
+          headEl.appendChild(baseEl);
           try {
-            let { default: init } = await import(`${path}/_app/package.js`);
-            init(`${path}/_app/package_bg.wasm`);
+            let { default: init } = await import(`${basePath}/_app/package.js`);
+            init(`${basePath}/_app/package_bg.wasm`);
           } catch (error) {
-            onError(`Can not load application: ${error}`);
+            showError(`Can not load application: ${error}`);
           }
         } else {
-          onError("Can not load site manifest");
+          showError("Can not load site manifest");
         }
       }
       init();
