@@ -8,12 +8,11 @@ mod error;
 // mod document;
 mod path;
 // mod registry;
-mod page;
-// mod widget;
+mod app;
+mod widget;
 // mod utils;
 
 use seed::prelude::wasm_bindgen;
-use seed::App;
 
 // ------ ------
 //     Start
@@ -23,5 +22,5 @@ use seed::App;
 #[wasm_bindgen(start)]
 pub fn start() {
     // Mount the `app` to the element with the `id` "app".
-    App::start("app", page::init, page::update, page::view);
+    seed::App::start("app", app::init, app::update, app::view);
 }

@@ -1,4 +1,3 @@
-use crate::path;
 use failure::Fail;
 
 #[derive(Fail, Debug, Clone)]
@@ -6,15 +5,18 @@ use failure::Fail;
 pub struct ParsePathError(&'static str);
 
 #[derive(Fail, Debug, Clone)]
-#[fail(display = "Can not fetch {}, {}", path, error)]
+#[fail(display = "Can not fetch {}, {}", url, error)]
 pub struct FetchError {
-    pub path: path::AbsPath,
+    pub url: String,
     pub error: String,
 }
 
 impl FetchError {
-    pub fn new(path: path::AbsPath, error: String) -> Self {
-        Self { path, error }
+    pub fn new(url: impl AsRef<str>, error: seed::fetch::FetchError) -> Self {
+        Self {
+            url: url.as_ref().to_string(),
+            error: format!("{:?}", error),
+        }
     }
 }
 

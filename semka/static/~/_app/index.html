@@ -24,13 +24,10 @@
         path = path.match(/(.*\/).*/)[1]; // remove file name
         while (path !== "") {
           path = path.match(/(.*)\/.*?/)[1];
-          let rep = await fetch(`${path}/manifest.json`);
+          let rep = await fetch(`${path}/site_manifest.json`);
           if (rep.ok) {
-            let manifest = await rep.json();
-            if (manifest["rootDocument"] != undefined) {
-              basePath = path;
-              break;
-            }
+            basePath = path;
+            break;
           }
         }
         if (basePath !== null) {

@@ -7,6 +7,7 @@ use crate::context::Context;
 // use crate::{path, widget};
 use crate::error;
 use crate::path;
+use crate::widget;
 use seed::{prelude::*, *};
 // use std::collections::BTreeMap;
 
@@ -15,12 +16,12 @@ use seed::{prelude::*, *};
 // ------ ------
 
 // `init` describes what should happen when your app started.
-pub(crate) fn init(url: Url, orders: &mut impl Orders<PageMsg>) -> PageModel {
+pub(crate) fn init(url: Url, orders: &mut impl Orders<AppMsg>) -> AppModel {
     let base_path: path::Path = orders.clone_base_path().iter().collect();
     let page_path: path::Path = url.path().iter().collect();
     let page_path = page_path.releative_to(&base_path);
-    orders.send_msg(PageMsg::FetchRootManifest);
-    PageModel::new(Context::new(page_path.into(), base_path.into()))
+    orders.perform_cmd(fetch_site_manifest());
+    AppModel::new(Context::new(page_path.into(), base_path.into()))
 }
 
 // ------ ------
@@ -28,18 +29,18 @@ pub(crate) fn init(url: Url, orders: &mut impl Orders<PageMsg>) -> PageModel {
 // ------ ------
 
 // `Model` describes our app state.
-pub(crate) struct PageModel {
+pub(crate) struct AppModel {
     context: Context,
-    root_manifest: Option<RootManifest>, // widgets: BTreeMap<path::DocPath, Box<dyn widget::Widget>>,
+    site_manifest: Option<RootManifest>, // widgets: BTreeMap<path::DocPath, Box<dyn widget::Widget>>,
 }
 
-impl PageModel {
+impl AppModel {
     fn new(context: Context) -> Self {
         // let widgets = BTreeMap::new();
-        // PageModel { context, widgets }
-        PageModel {
+        // AppModel { context, widgets }
+        AppModel {
             context,
-            root_manifest: None,
+            site_manifest: None,
         }
     }
 }
@@ -50,45 +51,37 @@ impl PageModel {
 
 #[derive(Clone)]
 // `Msg` describes the different events you can modify state with.
-pub enum PageMsg {
+pub enum AppMsg {
     UrlChanged(Url),
-    FetchRootManifest,
     ReceivedRootManifest(RootManifest),
     ShowError(error::SemkaError),
 }
 
 // `update` describes how to handle each `Msg`.
-pub(crate) fn update(msg: PageMsg, model: &mut PageModel, orders: &mut impl Orders<PageMsg>) {
+pub(crate) fn update(msg: AppMsg, model: &mut AppModel, orders: &mut impl Orders<AppMsg>) {
     match msg {
-        PageMsg::UrlChanged(url) => log!(format!("UrlChanged({})", url)),
-        PageMsg::ShowError(err) => log!(format!("Error {}", err)),
-        PageMsg::FetchRootManifest => {
-            orders.perform_cmd(fetch_root_manifest(&model.context.base_path()));
-        }
-        PageMsg::ReceivedRootManifest(manifest) => {
+        AppMsg::UrlChanged(url) => log!(format!("UrlChanged({})", url)),
+        AppMsg::ShowError(err) => log!(format!("Error {}", err)),
+        AppMsg::ReceivedRootManifest(manifest) => {
             log!("ReceivedRootManifest", manifest);
-            model.root_manifest = Some(manifest.clone());
+            model.site_manifest = Some(manifest.clone());
         }
     }
 }
 
-fn fetch_root_manifest(
-    base_path: &path::AbsPath,
-) -> impl futures::future::Future<Output = PageMsg> {
-    let mut manifest_path = base_path.clone();
-    manifest_path.push("manifest.json");
-    let url = manifest_path.as_url();
+fn fetch_site_manifest() -> impl futures::future::Future<Output = AppMsg> {
+    static URL: &str = "site_manifest.json";
     async {
-        let manifest = fetch(url)
+        let manifest = fetch(URL)
             .await?
             .check_status()?
             .json::<RootManifest>()
             .await?;
         Ok(manifest)
     }
-    .map_ok(PageMsg::ReceivedRootManifest)
+    .map_ok(AppMsg::ReceivedRootManifest)
     .unwrap_or_else(|err: seed::browser::fetch::FetchError| {
-        PageMsg::ShowError(error::FetchError::new(manifest_path, format!("{:?}", err)).into())
+        AppMsg::ShowError(error::FetchError::new(URL, err).into())
     })
 }
 
@@ -99,7 +92,7 @@ fn fetch_root_manifest(
 // (Remove the line below once your `Model` become more complex.)
 #[allow(clippy::trivially_copy_pass_by_ref)]
 // `view` describes what to display.
-pub(crate) fn view(model: &PageModel) -> Node<PageMsg> {
+pub(crate) fn view(model: &AppModel) -> Node<AppMsg> {
     let context = &model.context;
     div![
         C!["counter"],
@@ -109,7 +102,7 @@ pub(crate) fn view(model: &PageModel) -> Node<PageMsg> {
         ],
         div![span!["Base path: "], span![context.base_path().to_string()],],
         div![pre![
-            serde_json::to_string_pretty(&model.root_manifest).unwrap()
+            serde_json::to_string_pretty(&model.site_manifest).unwrap()
         ]],
         // button![model, ev(Ev::Click, |_| Msg::Increment),],
     ]
@@ -132,4 +125,3 @@ impl Default for RootManifest {
         }
     }
 }
-
