@@ -3,11 +3,10 @@
 // but some rules are too "annoying" or are not applicable for your case.)
 #![allow(clippy::wildcard_imports)]
 
-use crate::context::Context;
 // use crate::{path, widget};
 use crate::error;
 use crate::path;
-use crate::widget;
+// use crate::widget;
 use seed::{prelude::*, *};
 // use std::collections::BTreeMap;
 
@@ -16,12 +15,12 @@ use seed::{prelude::*, *};
 // ------ ------
 
 // `init` describes what should happen when your app started.
-pub(crate) fn init(url: Url, orders: &mut impl Orders<AppMsg>) -> AppModel {
+pub fn init(url: Url, orders: &mut impl Orders<AppMsg>) -> AppModel {
     let base_path: path::Path = orders.clone_base_path().iter().collect();
     let page_path: path::Path = url.path().iter().collect();
     let page_path = page_path.releative_to(&base_path);
     orders.perform_cmd(fetch_site_manifest());
-    AppModel::new(Context::new(page_path.into(), base_path.into()))
+    AppModel::new(page_path.into(), base_path.into())
 }
 
 // ------ ------
@@ -29,17 +28,20 @@ pub(crate) fn init(url: Url, orders: &mut impl Orders<AppMsg>) -> AppModel {
 // ------ ------
 
 // `Model` describes our app state.
-pub(crate) struct AppModel {
-    context: Context,
-    site_manifest: Option<RootManifest>, // widgets: BTreeMap<path::DocPath, Box<dyn widget::Widget>>,
+pub struct AppModel {
+    base_path: path::AbsPath,
+    page_path: path::PagePath,
+    site_manifest: Option<RootManifest>,
+    // widgets: BTreeMap<path::DocPath, Box<dyn widget::Widget>>,
 }
 
 impl AppModel {
-    fn new(context: Context) -> Self {
+    pub fn new(page_path: path::PagePath, base_path: path::AbsPath) -> Self {
         // let widgets = BTreeMap::new();
         // AppModel { context, widgets }
         AppModel {
-            context,
+            page_path,
+            base_path,
             site_manifest: None,
         }
     }
@@ -58,7 +60,7 @@ pub enum AppMsg {
 }
 
 // `update` describes how to handle each `Msg`.
-pub(crate) fn update(msg: AppMsg, model: &mut AppModel, orders: &mut impl Orders<AppMsg>) {
+pub fn update(msg: AppMsg, model: &mut AppModel, orders: &mut impl Orders<AppMsg>) {
     match msg {
         AppMsg::UrlChanged(url) => log!(format!("UrlChanged({})", url)),
         AppMsg::ShowError(err) => log!(format!("Error {}", err)),
@@ -92,15 +94,11 @@ fn fetch_site_manifest() -> impl futures::future::Future<Output = AppMsg> {
 // (Remove the line below once your `Model` become more complex.)
 #[allow(clippy::trivially_copy_pass_by_ref)]
 // `view` describes what to display.
-pub(crate) fn view(model: &AppModel) -> Node<AppMsg> {
-    let context = &model.context;
+pub fn view(model: &AppModel) -> Node<AppMsg> {
     div![
         C!["counter"],
-        div![
-            span!["Current path: "],
-            span![context.page_path().to_string()],
-        ],
-        div![span!["Base path: "], span![context.base_path().to_string()],],
+        div![span!["Current path: "], span![model.page_path.to_string()],],
+        div![span!["Base path: "], span![model.base_path.to_string()],],
         div![pre![
             serde_json::to_string_pretty(&model.site_manifest).unwrap()
         ]],

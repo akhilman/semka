@@ -7,6 +7,7 @@ pub struct ParsePathError(&'static str);
 #[derive(Fail, Debug, Clone)]
 #[fail(display = "Can not fetch {}, {}", url, error)]
 pub struct FetchError {
+    // TODO replace with failure::Context
     pub url: String,
     pub error: String,
 }
@@ -20,6 +21,7 @@ impl FetchError {
     }
 }
 
+// TODO: replace with failure::Error
 #[derive(Fail, Debug, Clone)]
 pub enum SemkaError {
     #[fail(display = "Error: {}", _0)]

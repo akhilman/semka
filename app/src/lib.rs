@@ -3,16 +3,8 @@
 // but some rules are too "annoying" or are not applicable for your case.)
 #![allow(clippy::wildcard_imports)]
 
-mod context;
-mod error;
-// mod document;
-mod path;
-// mod registry;
-mod app;
-mod widget;
-// mod utils;
-
 use seed::prelude::wasm_bindgen;
+use semka_core::app;
 
 // ------ ------
 //     Start
