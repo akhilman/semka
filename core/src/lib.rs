@@ -4,11 +4,13 @@
 #![allow(clippy::wildcard_imports)]
 
 pub mod app;
+pub mod constants;
 pub mod context;
 pub mod error;
 pub mod path;
-// mod registry;
-// mod widget;
+mod register;
+mod utils;
+pub mod widget;
 
 use seed::prelude::wasm_bindgen;
 

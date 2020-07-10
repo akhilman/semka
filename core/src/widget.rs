@@ -1,5 +1,5 @@
 use crate::context::Context;
-use crate::error::SemkaError;
+use crate::error::WidgetError;
 use crate::path::{DocPath, FilePath, PagePath};
 use seed::browser::fetch;
 use serde::{Deserialize, Serialize};
@@ -30,13 +30,13 @@ pub trait WidgetFactory {
     fn can_handle(&self, manifest: &DocManifest) -> bool;
     fn create(
         &self,
-        page_path: &PagePath,
+        manifest: DocManifest,
         doc_path: &DocPath,
-        manifest: &DocManifest,
-    ) -> Result<Box<dyn Widget>, SemkaError>;
+        page_path: &PagePath,
+    ) -> Result<Box<dyn Widget>, WidgetError>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocManifest {
-    pub document_type: String,
+    pub widget: String,
 }

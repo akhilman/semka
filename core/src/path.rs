@@ -28,6 +28,11 @@ impl Path {
         self.ends_of_parts.push(self.all_parts.len())
     }
 
+    pub fn add(mut self, part: &str) -> Self {
+        self.push(part);
+        self
+    }
+
     pub fn append(&mut self, other: &Self) {
         other.iter().for_each(|part| self.push(part))
     }

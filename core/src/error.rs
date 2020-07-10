@@ -1,5 +1,7 @@
 use failure::Fail;
 
+pub type Result<T> = std::result::Result<T, SemkaError>;
+
 #[derive(Fail, Debug, Clone)]
 #[fail(display = "Can not parse path: {}", _0)]
 pub struct ParsePathError(&'static str);
@@ -17,6 +19,22 @@ impl FetchError {
         Self {
             url: url.as_ref().to_string(),
             error: format!("{:?}", error),
+        }
+    }
+}
+
+#[derive(Fail, Debug, Clone)]
+#[fail(display = "Error in widget {} {}", widget, err)]
+pub struct WidgetError {
+    widget: String,
+    err: &'static str,
+}
+
+impl WidgetError {
+    pub fn new(widget: impl AsRef<str>, err: &'static str) -> Self {
+        Self {
+            widget: widget.as_ref().to_string(),
+            err,
         }
     }
 }

@@ -1,34 +1,20 @@
-use itertools::{EitherOrBoth, Itertools};
-use std::ffi::OsStr;
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use crate::error;
+use futures::future::{Future, TryFutureExt};
 
-pub fn releative_path<P: Deref<Target = Path>>(base: &P, path: &P) -> PathBuf {
-    let dir_up: &OsStr = "..".as_ref();
-    let (up, down): (Vec<&OsStr>, Vec<&OsStr>) =
-        base.iter()
-            .zip_longest(path.iter())
-            .fold((vec![], vec![]), |mut parts, pp| {
-                match pp {
-                    EitherOrBoth::Both(left, right) => {
-                        if left != right {
-                            parts.0.push(dir_up);
-                            parts.1.push(right)
-                        }
-                    }
-                    EitherOrBoth::Left(_) => parts.0.push(dir_up),
-                    EitherOrBoth::Right(right) => parts.1.push(right),
-                };
-                parts
-            });
-    let rpath = PathBuf::new();
-    let rpath = up.iter().fold(rpath, |mut path, p| {
-        path.push(p);
-        path
-    });
-    let rpath = down.iter().fold(rpath, |mut path, p| {
-        path.push(p);
-        path
-    });
-    rpath
+pub fn fetch_json<U, T>(url: U) -> impl Future<Output = Result<T, error::FetchError>>
+where
+    U: ToString,
+    T: serde::de::DeserializeOwned + 'static,
+{
+    let url = url.to_string();
+    let url_clone = url.clone();
+    async {
+        let manifest = seed::browser::fetch::fetch(url)
+            .await?
+            .check_status()?
+            .json::<T>()
+            .await?;
+        Ok(manifest)
+    }
+    .map_err(|err| error::FetchError::new(url_clone, err))
 }

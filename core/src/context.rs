@@ -1,10 +1,16 @@
-use crate::path::FilePath;
+use crate::path::{DocPath, FilePath, PagePath};
 
-pub struct Context {}
+pub struct Context<'a> {
+    page_path: &'a PagePath,
+    doc_path: &'a DocPath,
+}
 
-impl Context {
-    pub fn new() -> Self {
-        Context {}
+impl<'a> Context<'a> {
+    pub fn new(page_path: &'a PagePath, doc_path: &'a DocPath) -> Self {
+        Context {
+            page_path,
+            doc_path,
+        }
     }
     pub fn fetch_binary(&mut self, path: FilePath) -> &mut Self {
         unimplemented!()
