@@ -4,7 +4,7 @@
 #![allow(clippy::wildcard_imports)]
 
 use seed::prelude::wasm_bindgen;
-use semka_core::app;
+use semka_core::Launcher;
 
 // ------ ------
 //     Start
@@ -14,5 +14,5 @@ use semka_core::app;
 #[wasm_bindgen(start)]
 pub fn start() {
     // Mount the `app` to the element with the `id` "app".
-    seed::App::start("app", app::init, app::update, app::view);
+    Launcher::new().root_element("app").start();
 }

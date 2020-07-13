@@ -1,31 +1,89 @@
-// (Lines like the one below ignore selected Clippy rules
-//  - it's useful when you want to check your code with `cargo make verify`
-// but some rules are too "annoying" or are not applicable for your case.)
-#![allow(clippy::wildcard_imports)]
-
-// use crate::{path, widget};
-use crate::error;
-use crate::path;
-use crate::register;
-use crate::widget;
+use crate::context::{Context, Registry};
+use crate::manifests::SiteManifest;
+use crate::path::{AbsPath, PagePath};
+use crate::utils;
+use crate::widget::WidgetFactory;
 use failure::{format_err, Error};
 use seed::{prelude::*, *};
-// use std::collections::BTreeMap;
-use crate::constants::{DOC_DIR, DOC_MANIFEST_FILE, SITE_MANIFEST_FILE};
-use crate::utils;
+
+pub mod browse;
+pub mod edit;
+
+// ------ ------
+//   Launcher
+// ------ ------
+
+pub struct Launcher {
+    registry: Registry,
+    root_element: Option<String>,
+}
+
+impl Launcher {
+    pub fn new() -> Self {
+        Self {
+            registry: Registry::new(),
+            root_element: None,
+        }
+    }
+
+    pub fn add_widget<F>(self, factory: F) -> Self
+    where
+        F: WidgetFactory + 'static,
+    {
+        Self {
+            registry: self.registry.add_widget(factory),
+            ..self
+        }
+    }
+
+    pub fn root_element(self, root_element: impl AsRef<str>) -> Self {
+        Self {
+            root_element: Some(root_element.as_ref().to_string()),
+            ..self
+        }
+    }
+
+    pub fn start(mut self) {
+        let root_element = self.root_element.take().unwrap_or("app".to_string());
+        let registry = self.registry;
+        seed::App::start(
+            root_element.as_str(),
+            |url, orders| init(registry, url, orders),
+            update,
+            view,
+        );
+    }
+}
 
 // ------ ------
 //     Init
 // ------ ------
 
 // `init` describes what should happen when your app started.
-pub fn init(url: Url, orders: &mut impl Orders<AppMsg>) -> AppModel {
-    let base_path: path::Path = orders.clone_base_path().iter().collect();
-    let page_path: path::Path = url.path().iter().collect();
-    let page_path = page_path.releative_to(&base_path);
-    let widget_register = register::Register::new();
-    orders.send_msg(AppMsg::Init);
-    AppModel::new(page_path.into(), base_path.into(), widget_register)
+fn init(registry: Registry, url: Url, orders: &mut impl Orders<Msg>) -> Model {
+    orders
+        .perform_cmd(
+            utils::fetch_site_manifest()
+                .map_ok_or_else(|err| Msg::ShowError(err.into()), Msg::SiteManifestChanged),
+        )
+        .subscribe(|url_changed: subs::UrlChanged| Msg::UrlChanged(url_changed.0));
+
+    let base_path: AbsPath = orders.clone_base_path().iter().collect();
+    let page_path = url_to_page_path(&url, &base_path);
+    let ctx = Context {
+        url,
+        page_path,
+        base_path,
+        site_manifest: SiteManifest::default(),
+        registry,
+    };
+
+    Model {
+        ctx,
+        mode: Mode::Loading,
+        browse: None,
+        edit: None,
+    }
 }
 
 // ------ ------
@@ -33,29 +91,20 @@ pub fn init(url: Url, orders: &mut impl Orders<AppMsg>) -> AppModel {
 // ------ ------
 
 // `Model` describes our app state.
-pub struct AppModel {
-    base_path: path::AbsPath,
-    page_path: path::PagePath,
-    site_manifest: Option<RootManifest>,
-    widget_register: register::Register,
-    // widgets: BTreeMap<path::DocPath, Box<dyn widget::Widget>>,
+
+#[derive(Debug)]
+struct Model {
+    ctx: Context,
+    mode: Mode,
+    browse: Option<browse::Model>,
+    edit: Option<edit::Model>,
 }
 
-impl AppModel {
-    pub fn new(
-        page_path: path::PagePath,
-        base_path: path::AbsPath,
-        widget_register: register::Register,
-    ) -> Self {
-        // let widgets = BTreeMap::new();
-        // AppModel { context, widgets }
-        AppModel {
-            page_path,
-            base_path,
-            site_manifest: None,
-            widget_register,
-        }
-    }
+#[derive(Debug)]
+enum Mode {
+    Browse,
+    Edit,
+    Loading,
 }
 
 // ------ ------
@@ -63,59 +112,115 @@ impl AppModel {
 // ------ ------
 
 // `Msg` describes the different events you can modify state with.
-pub enum AppMsg {
-    Init,
-    UrlChanged(Url),
-    ReceivedRootManifest(RootManifest),
+enum Msg {
+    Browse(browse::Msg),
+    Edit(edit::Msg),
+    SiteManifestChanged(SiteManifest),
     ShowError(Error),
+    UrlChanged(Url),
 }
 
 // `update` describes how to handle each `Msg`.
-pub fn update(msg: AppMsg, model: &mut AppModel, orders: &mut impl Orders<AppMsg>) {
+fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
-        AppMsg::Init => {
-            orders.perform_cmd(fetch_site_manifest());
+        Msg::SiteManifestChanged(site_manifest) => {
+            model.ctx.site_manifest = site_manifest;
+            let site_manifest = &model.ctx.site_manifest;
+            if let Some(browse_model) = &mut model.browse {
+                browse::update(
+                    browse::Msg::SiteManifestChanged(site_manifest.clone()),
+                    browse_model,
+                    &mut orders.proxy(Msg::Browse),
+                    &model.ctx,
+                )
+            }
+            if let Some(edit_model) = &mut model.edit {
+                edit::update(
+                    edit::Msg::SiteManifestChanged(site_manifest.clone()),
+                    edit_model,
+                    &mut orders.proxy(Msg::Edit),
+                    &model.ctx,
+                )
+            }
+            orders.notify(subs::UrlChanged(model.ctx.url.clone()));
         }
-        AppMsg::UrlChanged(url) => log!(format!("UrlChanged({})", url)),
-        AppMsg::ShowError(err) => log!(format!("Error {}", err)),
-        AppMsg::ReceivedRootManifest(manifest) => {
-            log!("ReceivedRootManifest", manifest);
-            model.site_manifest = Some(manifest.clone());
+        Msg::UrlChanged(url) => {
+            let page_path = url_to_page_path(&url, &model.ctx.base_path);
+            let mode = path_to_mode(&page_path);
+
+            model.ctx.page_path = page_path;
+            model.ctx.url = url.clone();
+
+            match mode {
+                Mode::Edit => {
+                    let mut edit_orders = orders.proxy(Msg::Edit);
+                    let mut edit_model = model
+                        .edit
+                        .take()
+                        .unwrap_or_else(|| edit::init(url.clone(), &mut edit_orders, &model.ctx));
+                    edit::update(
+                        edit::Msg::UrlChanged(url),
+                        &mut edit_model,
+                        &mut edit_orders,
+                        &model.ctx,
+                    );
+                    model.edit.replace(edit_model);
+                }
+                Mode::Browse => {
+                    let mut browse_orders = orders.proxy(Msg::Browse);
+                    let mut browse_model = model.browse.take().unwrap_or_else(|| {
+                        browse::init(url.clone(), &mut browse_orders, &model.ctx)
+                    });
+                    browse::update(
+                        browse::Msg::UrlChanged(url),
+                        &mut browse_model,
+                        &mut browse_orders,
+                        &model.ctx,
+                    );
+                    model.browse.replace(browse_model);
+                }
+                Mode::Loading => (),
+            };
+            model.mode = mode;
         }
+        Msg::Browse(browse_msg) => {
+            if let Some(browse_model) = &mut model.browse {
+                browse::update(
+                    browse_msg,
+                    browse_model,
+                    &mut orders.proxy(Msg::Browse),
+                    &model.ctx,
+                );
+            } else {
+                orders.send_msg(Msg::ShowError(format_err!("Browse mode not initialized")));
+            }
+        }
+        Msg::Edit(edit_msg) => {
+            if let Some(edit_model) = &mut model.edit {
+                edit::update(
+                    edit_msg,
+                    edit_model,
+                    &mut orders.proxy(Msg::Edit),
+                    &model.ctx,
+                );
+            } else {
+                orders.send_msg(Msg::ShowError(format_err!("Edit mode not initialized")));
+            }
+        }
+        Msg::ShowError(err) => error!(err),
     }
 }
 
-fn fetch_site_manifest() -> impl futures::future::Future<Output = AppMsg> {
-    async {
-        let manifest = fetch(SITE_MANIFEST_FILE)
-            .await?
-            .check_status()?
-            .json::<RootManifest>()
-            .await?;
-        Ok(manifest)
+fn path_to_mode(page_path: &PagePath) -> Mode {
+    let first_part = page_path.iter().nth(0).unwrap_or("");
+    match first_part {
+        "_edit" => Mode::Edit,
+        _ => Mode::Browse,
     }
-    .map_ok(AppMsg::ReceivedRootManifest)
-    .unwrap_or_else(|err: seed::browser::fetch::FetchError| {
-        AppMsg::ShowError(error::FetchError::new(SITE_MANIFEST_FILE, err).into())
-    })
 }
 
-async fn resolve_widget(
-    doc_path: &path::DocPath,
-    page_path: &path::PagePath,
-    reg: &register::Register,
-) -> Result<Box<dyn widget::Widget>, Error> {
-    let doc_name = doc_path
-        .iter()
-        .nth(0)
-        .ok_or(format_err!("Document path is empty for page {}", page_path))?;
-    let doc_manifest_path = path::Path::new()
-        .add(DOC_DIR)
-        .add(doc_name)
-        .add(DOC_MANIFEST_FILE);
-    let manifest: widget::DocManifest = utils::fetch_json(doc_manifest_path).await?;
-    let widget = reg.resolve(manifest, doc_path, page_path)?;
-    Ok(widget)
+fn url_to_page_path(url: &Url, base_path: &AbsPath) -> PagePath {
+    crate::path::releative_path(base_path.iter(), url.path().iter().map(String::as_str)).collect()
 }
 
 // ------ ------
@@ -125,32 +230,26 @@ async fn resolve_widget(
 // (Remove the line below once your `Model` become more complex.)
 #[allow(clippy::trivially_copy_pass_by_ref)]
 // `view` describes what to display.
-pub fn view(model: &AppModel) -> Node<AppMsg> {
-    div![
-        C!["counter"],
-        div![span!["Current path: "], span![model.page_path.to_string()],],
-        div![span!["Base path: "], span![model.base_path.to_string()],],
-        div![pre![
-            serde_json::to_string_pretty(&model.site_manifest).unwrap()
-        ]],
-        // button![model, ev(Ev::Click, |_| Msg::Increment),],
-    ]
+fn view(model: &Model) -> Node<Msg> {
+    match model.mode {
+        Mode::Browse => {
+            if let Some(browse_model) = &model.browse {
+                browse::view(browse_model, &model.ctx).map_msg(Msg::Browse)
+            } else {
+                div!["View mode not initialized"]
+            }
+        }
+        Mode::Edit => {
+            if let Some(edit_model) = &model.edit {
+                edit::view(edit_model, &model.ctx).map_msg(Msg::Edit)
+            } else {
+                div!["Edit mode not initialized"]
+            }
+        }
+        Mode::Loading => div!["Loading..."],
+    }
 }
 
 // ------ ------
 //     Misc
 // ------ ------
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RootManifest {
-    root_document: path::DocPath,
-}
-
-impl Default for RootManifest {
-    fn default() -> Self {
-        Self {
-            root_document: "emptySite".parse().unwrap(),
-        }
-    }
-}

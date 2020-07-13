@@ -1,42 +1,31 @@
 use crate::context::Context;
 use crate::error::WidgetError;
-use crate::path::{DocPath, FilePath, PagePath};
-use seed::browser::fetch;
-use serde::{Deserialize, Serialize};
-use serde_json;
+use crate::manifests::DocManifest;
+use crate::path::DocPath;
 use std::any::Any;
 use std::collections::BTreeSet;
 
-pub trait Widget {
+pub mod orders;
+
+pub use orders::{WidgetCmd, WidgetOrders};
+
+pub trait Widget: std::fmt::Debug {
     fn dependencies(&self) -> BTreeSet<DocPath> {
         BTreeSet::new()
     }
-    fn update(&mut self, msg: &WidgetMsg, context: &mut Context);
-    fn view(&self, context: &mut Context);
+    fn update(&mut self, msg: &WidgetMsg, context: &mut WidgetOrders, ctx: &Context);
+    fn view(&self, context: &mut WidgetOrders, ctx: &Context);
 }
 
-pub struct WidgetMsg {
-    pub document: DocPath,
-    pub page: PagePath,
-    pub message: WidgetMsgContent,
+pub enum WidgetMsg {
+    CmdResult(Box<dyn Any>),
 }
 
-pub enum WidgetMsgContent {
-    JsonFetched(fetch::Result<serde_json::Value>),
-    Custom(Box<dyn Any>),
-}
-
-pub trait WidgetFactory {
+pub trait WidgetFactory: std::fmt::Debug {
     fn can_handle(&self, manifest: &DocManifest) -> bool;
     fn create(
         &self,
         manifest: DocManifest,
-        doc_path: &DocPath,
-        page_path: &PagePath,
+        doc_path: DocPath,
     ) -> Result<Box<dyn Widget>, WidgetError>;
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DocManifest {
-    pub widget: String,
 }

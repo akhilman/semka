@@ -37,11 +37,14 @@ impl Path {
         other.iter().for_each(|part| self.push(part))
     }
 
+    pub fn join(mut self, other: &Self) -> Self {
+        self.append(other);
+        self
+    }
+
     pub fn releative_to(&self, base: &Self) -> Self {
         let mut new = Self::new();
-        releative_path(base.iter(), self.iter())
-            .into_iter()
-            .for_each(|part| new.push(part));
+        releative_path(base.iter(), self.iter()).for_each(|part| new.push(part));
         new
     }
     pub fn is_subpath(&self, rhs: &Self) -> bool {
@@ -51,6 +54,9 @@ impl Path {
         is_subpath(rhs.iter(), self.iter())
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.ends_of_parts.is_empty()
+    }
     pub fn len(&self) -> usize {
         self.ends_of_parts.len()
     }
@@ -78,7 +84,7 @@ pub struct ParsePathError(&'static str);
 impl std::str::FromStr for Path {
     type Err = ParsePathError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(s.split('/').collect())
+        Ok(s.split('/').filter(|s| !s.is_empty()).collect())
     }
 }
 
@@ -207,15 +213,15 @@ macro_rules! path_variant {
             pub fn iter(&self) -> PathIterator {
                 self.0.iter()
             }
-
             pub fn push(&mut self, part: &str) {
                 self.0.push(part)
             }
-
+            pub fn add(self, part: &str) -> Self {
+                Self(self.0.add(part))
+            }
             pub fn append(&mut self, other: &mut Self) {
                 self.0.append(&other.0)
             }
-
             pub fn releative_to(&self, base: &Self) -> Self {
                 Self(self.0.releative_to(&base.0))
             }
@@ -225,7 +231,9 @@ macro_rules! path_variant {
             pub fn is_superpath(&self, rhs: &Self) -> bool {
                 self.0.is_superpath(&rhs.0)
             }
-
+            pub fn is_empty(&self) -> bool {
+                self.0.is_empty()
+            }
             pub fn len(&self) -> usize {
                 self.0.len()
             }
@@ -386,9 +394,10 @@ impl<'de> serde::de::Visitor<'de> for AbsPathVisitor {
     }
 }
 
-fn releative_path<'a, I>(base: I, path: I) -> Vec<&'a str>
+pub(crate) fn releative_path<'a, B, P>(base: B, path: P) -> impl Iterator<Item = &'a str>
 where
-    I: std::iter::Iterator<Item = &'a str>,
+    B: std::iter::Iterator<Item = &'a str>,
+    P: std::iter::Iterator<Item = &'a str>,
 {
     static DIR_UP: &str = "..";
     let (up, down): (Vec<&'a str>, Vec<&'a str>) =
@@ -406,10 +415,10 @@ where
                 };
                 parts
             });
-    up.into_iter().chain(down.into_iter()).collect()
+    up.into_iter().chain(down.into_iter())
 }
 
-fn is_subpath<'a, I>(lhs: I, rhs: I) -> bool
+pub(crate) fn is_subpath<'a, I>(lhs: I, rhs: I) -> bool
 where
     I: std::iter::Iterator<Item = &'a str>,
 {

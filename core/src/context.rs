@@ -1,27 +1,15 @@
-use crate::path::{DocPath, FilePath, PagePath};
+use crate::manifests::SiteManifest;
+use crate::path::{AbsPath, PagePath};
+use seed::Url;
 
-pub struct Context<'a> {
-    page_path: &'a PagePath,
-    doc_path: &'a DocPath,
-}
+mod registry;
+pub use registry::Registry;
 
-impl<'a> Context<'a> {
-    pub fn new(page_path: &'a PagePath, doc_path: &'a DocPath) -> Self {
-        Context {
-            page_path,
-            doc_path,
-        }
-    }
-    pub fn fetch_binary(&mut self, path: FilePath) -> &mut Self {
-        unimplemented!()
-    }
-    pub fn fetch_text(&mut self, path: FilePath) -> &mut Self {
-        unimplemented!()
-    }
-    pub fn fetch_json<T>(&mut self, path: FilePath) -> &mut Self {
-        unimplemented!()
-    }
-    pub fn skip(&mut self) -> &mut Self {
-        unimplemented!()
-    }
+#[derive(Debug)]
+pub struct Context {
+    pub url: Url,
+    pub page_path: PagePath,
+    pub base_path: AbsPath,
+    pub site_manifest: SiteManifest,
+    pub registry: Registry,
 }

@@ -1,16 +1,18 @@
 use crate::error::WidgetError;
+use crate::manifests::DocManifest;
 use crate::path::{DocPath, PagePath};
-use crate::widget::{DocManifest, Widget, WidgetFactory};
+use crate::widget::{Widget, WidgetFactory};
 
-pub struct Register {
+#[derive(Debug)]
+pub struct Registry {
     factories: Vec<Box<dyn WidgetFactory>>,
 }
 
-impl Register {
+impl Registry {
     pub fn new() -> Self {
         Self { factories: vec![] }
     }
-    pub fn add_widget_factory<F>(mut self, factory: F) -> Self
+    pub fn add_widget<F>(mut self, factory: F) -> Self
     where
         F: WidgetFactory + 'static,
     {
@@ -18,15 +20,10 @@ impl Register {
         self
     }
 
-    pub fn resolve(
-        &self,
-        manifest: DocManifest,
-        doc_path: &DocPath,
-        page_path: &PagePath,
-    ) -> Result<Box<dyn Widget>, WidgetError> {
+    pub fn resolve(&self, manifest: &DocManifest) -> Result<&dyn WidgetFactory, WidgetError> {
         for factory in self.factories.iter().rev() {
             if factory.can_handle(&manifest) {
-                return factory.create(manifest, doc_path, page_path);
+                return Ok(factory.as_ref());
             }
         }
         Err(WidgetError::new(&manifest.widget, "Can not find widget"))

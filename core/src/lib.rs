@@ -7,20 +7,9 @@ pub mod app;
 pub mod constants;
 pub mod context;
 pub mod error;
+pub mod manifests;
 pub mod path;
-mod register;
-mod utils;
+pub mod utils;
 pub mod widget;
 
-use seed::prelude::wasm_bindgen;
-
-// ------ ------
-//     Start
-// ------ ------
-
-// (This function is invoked by `init` function in `index.html`.)
-#[wasm_bindgen(start)]
-pub fn start() {
-    // Mount the `app` to the element with the `id` "app".
-    seed::App::start("app", app::init, app::update, app::view);
-}
+pub use app::Launcher;
