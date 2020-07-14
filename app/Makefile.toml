@@ -107,8 +107,8 @@ script = ['rm -fr dist']
 
 # ---- RELEASE ----
 
-[tasks.publish]
+[tasks.upload]
 description = "Upload to IPFS"
 dependencies = ["build_release"]
 command = "bash"
-args = ["scripts/publish.sh", "dist"]
+args = ["scripts/upload.sh", "dist"]
