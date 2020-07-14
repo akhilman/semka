@@ -68,7 +68,11 @@ fn init(registry: Registry, url: Url, orders: &mut impl Orders<Msg>) -> Model {
         )
         .subscribe(|url_changed: subs::UrlChanged| Msg::UrlChanged(url_changed.0));
 
-    let base_path: AbsPath = orders.clone_base_path().iter().collect();
+    let base_path: AbsPath = orders
+        .clone_base_path()
+        .iter()
+        .filter(|p| !p.is_empty())
+        .collect();
     let page_path = url_to_page_path(&url, &base_path);
     let ctx = Context {
         url,
@@ -215,12 +219,14 @@ fn path_to_mode(page_path: &PagePath) -> Mode {
     let first_part = page_path.iter().nth(0).unwrap_or("");
     match first_part {
         "_edit" => Mode::Edit,
+        "_app" => Mode::About,
         _ => Mode::Browse,
     }
 }
 
 fn url_to_page_path(url: &Url, base_path: &AbsPath) -> PagePath {
-    crate::path::releative_path(base_path.iter(), url.path().iter().map(String::as_str)).collect()
+    let abs_path: AbsPath = url.path().iter().collect();
+    abs_path.releative_to(base_path).into()
 }
 
 // ------ ------

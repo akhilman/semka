@@ -304,6 +304,10 @@ impl AbsPath {
         self.0.push(part)
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn releative_to(&self, base: &Self) -> Path {
         self.0.releative_to(&base.0)
     }
@@ -316,7 +320,9 @@ impl AbsPath {
 
 impl std::fmt::Display for AbsPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::iter::once("").chain(self.iter()).format("/").fmt(f)
+        use std::fmt::Write;
+        f.write_char('/')?;
+        self.iter().format("/").fmt(f)
     }
 }
 
@@ -394,7 +400,7 @@ impl<'de> serde::de::Visitor<'de> for AbsPathVisitor {
     }
 }
 
-pub(crate) fn releative_path<'a, B, P>(base: B, path: P) -> impl Iterator<Item = &'a str>
+pub fn releative_path<'a, B, P>(base: B, path: P) -> impl Iterator<Item = &'a str>
 where
     B: std::iter::Iterator<Item = &'a str>,
     P: std::iter::Iterator<Item = &'a str>,
@@ -418,7 +424,7 @@ where
     up.into_iter().chain(down.into_iter())
 }
 
-pub(crate) fn is_subpath<'a, I>(lhs: I, rhs: I) -> bool
+pub fn is_subpath<'a, I>(lhs: I, rhs: I) -> bool
 where
     I: std::iter::Iterator<Item = &'a str>,
 {
