@@ -6,6 +6,7 @@ use crate::widget::WidgetFactory;
 use failure::{format_err, Error};
 use seed::{prelude::*, *};
 
+mod about;
 pub mod browse;
 pub mod edit;
 
@@ -106,6 +107,7 @@ struct Model {
 
 #[derive(Debug)]
 enum Mode {
+    About,
     Browse,
     Edit,
     Loading,
@@ -183,7 +185,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     );
                     model.browse.replace(browse_model);
                 }
-                Mode::Loading => (),
+                Mode::Loading | Mode::About => (),
             };
             model.mode = mode;
         }
@@ -252,6 +254,7 @@ fn view(model: &Model) -> Node<Msg> {
                 div!["Edit mode not initialized"]
             }
         }
+        Mode::About => about::view(&model.ctx),
         Mode::Loading => div!["Loading..."],
     }
 }
