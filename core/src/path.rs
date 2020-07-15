@@ -1,10 +1,12 @@
+use crate::error::{ParsePathError, PathError};
 use itertools::{EitherOrBoth, Itertools};
-use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Path {
     all_parts: String,
     ends_of_parts: Vec<usize>,
+    absoulute: bool,
 }
 
 impl Path {
@@ -12,9 +14,16 @@ impl Path {
         Self {
             all_parts: "".to_string(),
             ends_of_parts: vec![],
+            absoulute: false,
         }
     }
-
+    pub fn new_absolute() -> Self {
+        Self {
+            all_parts: "".to_string(),
+            ends_of_parts: vec![],
+            absoulute: true,
+        }
+    }
     pub fn iter(&self) -> PathIterator {
         PathIterator {
             path: self,
@@ -22,38 +31,56 @@ impl Path {
             back_i: self.len(),
         }
     }
-
     pub fn push(&mut self, part: &str) {
         self.all_parts.push_str(part);
         self.ends_of_parts.push(self.all_parts.len())
     }
-
+    pub fn append(&mut self, other: &Self) {
+        if other.is_absolute() {
+            std::mem::swap(self, &mut other.clone());
+        } else {
+            other.iter().for_each(|part| self.push(part));
+        }
+    }
     pub fn add(mut self, part: &str) -> Self {
         self.push(part);
         self
     }
-
-    pub fn append(&mut self, other: &Self) {
-        other.iter().for_each(|part| self.push(part))
+    pub fn join(mut self, other: Self) -> Self {
+        if other.is_absolute() {
+            other
+        } else if self.is_absolute() && self.is_empty() {
+            Self {
+                absoulute: true,
+                ..other
+            }
+        } else {
+            self.append(&other);
+            self
+        }
     }
-
-    pub fn join(mut self, other: &Self) -> Self {
-        self.append(other);
-        self
-    }
-
-    pub fn releative_to(&self, base: &Self) -> Self {
-        let mut new = Self::new();
-        releative_path(base.iter(), self.iter()).for_each(|part| new.push(part));
-        new
+    pub fn releative_to(self, base: &Self) -> Result<Self, PathError> {
+        match (base.is_absolute(), self.is_absolute()) {
+            (true, true) | (false, false) => {
+                let mut new = Self::new();
+                releative_path(base.iter(), self.iter()).for_each(|part| new.push(part));
+                Ok(new)
+            }
+            _ => Err(PathError("Can not find releative path")),
+        }
     }
     pub fn is_subpath(&self, rhs: &Self) -> bool {
-        is_subpath(self.iter(), rhs.iter())
+        match (self.is_absolute(), rhs.is_absolute()) {
+            (true, true) | (false, false) => is_subpath(self.iter(), rhs.iter()),
+            _ => false,
+        }
     }
     pub fn is_superpath(&self, rhs: &Self) -> bool {
-        is_subpath(rhs.iter(), self.iter())
+        rhs.is_subpath(self)
     }
-
+    pub fn is_absolute(&self) -> bool {
+        self.absoulute
+    }
     pub fn is_empty(&self) -> bool {
         self.ends_of_parts.is_empty()
     }
@@ -70,27 +97,31 @@ impl Default for Path {
 
 impl std::fmt::Debug for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"")?;
+        write!(f, "Path(\"")?;
         std::fmt::Display::fmt(self, f)?;
-        write!(f, "\"")?;
+        write!(f, "\")")?;
         Ok(())
     }
 }
 
 impl std::fmt::Display for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_absolute() {
+            f.write_char('/')?;
+        }
         self.iter().format("/").fmt(f)
     }
 }
 
-#[derive(failure::Fail, Debug)]
-#[fail(display = "Can not parse path: {}", _0)]
-pub struct ParsePathError(&'static str);
-
 impl std::str::FromStr for Path {
     type Err = ParsePathError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(s.split('/').filter(|s| !s.is_empty()).collect())
+        let path = s.split('/').filter(|s| !s.is_empty()).collect();
+        Ok(if s.starts_with("/") {
+            Path::new_absolute().join(path)
+        } else {
+            path
+        })
     }
 }
 
@@ -196,214 +227,6 @@ impl<'de> serde::de::Deserialize<'de> for Path {
 struct PathVisitor;
 impl<'de> serde::de::Visitor<'de> for PathVisitor {
     type Value = Path;
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("string path")
-    }
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        value.parse().map_err(|e| serde::de::Error::custom(e))
-    }
-}
-
-macro_rules! path_variant {
-    ($t:ident) => {
-        #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-        pub struct $t(Path);
-
-        impl $t {
-            pub fn new() -> Self {
-                Self(Path::new())
-            }
-            pub fn iter(&self) -> PathIterator {
-                self.0.iter()
-            }
-            pub fn push(&mut self, part: &str) {
-                self.0.push(part)
-            }
-            pub fn add(self, part: &str) -> Self {
-                Self(self.0.add(part))
-            }
-            pub fn append(&mut self, other: &Self) {
-                self.0.append(&other.0)
-            }
-            pub fn join(self, other: &Self) -> Self {
-                Self(self.0.join(&other.0))
-            }
-            pub fn releative_to(&self, base: &Self) -> Self {
-                Self(self.0.releative_to(&base.0))
-            }
-            pub fn is_subpath(&self, rhs: &Self) -> bool {
-                self.0.is_subpath(&rhs.0)
-            }
-            pub fn is_superpath(&self, rhs: &Self) -> bool {
-                self.0.is_superpath(&rhs.0)
-            }
-            pub fn is_empty(&self) -> bool {
-                self.0.is_empty()
-            }
-            pub fn len(&self) -> usize {
-                self.0.len()
-            }
-        }
-
-        impl Default for $t {
-            fn default() -> Self {
-                Self(Path::default())
-            }
-        }
-
-        impl std::fmt::Display for $t {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                self.0.fmt(f)
-            }
-        }
-
-        impl std::str::FromStr for $t {
-            type Err = ParsePathError;
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                Path::from_str(s).map(Self)
-            }
-        }
-
-        impl std::ops::Index<usize> for $t {
-            type Output = str;
-            fn index(&self, index: usize) -> &str {
-                self.0.index(index)
-            }
-        }
-
-        impl<S> std::iter::FromIterator<S> for $t
-        where
-            S: std::convert::AsRef<str>,
-        {
-            fn from_iter<T>(iter: T) -> Self
-            where
-                T: IntoIterator<Item = S>,
-            {
-                Self(Path::from_iter(iter))
-            }
-        }
-
-        impl std::convert::From<Path> for $t {
-            fn from(path: Path) -> Self {
-                Self(path)
-            }
-        }
-
-        impl std::convert::From<$t> for Path {
-            fn from(path: $t) -> Self {
-                path.0
-            }
-        }
-    };
-}
-
-path_variant!(DocPath);
-path_variant!(FilePath);
-path_variant!(PagePath);
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct AbsPath(Path);
-
-impl AbsPath {
-    pub fn new() -> Self {
-        Self(Path::new())
-    }
-    pub fn iter(&self) -> PathIterator {
-        self.0.iter()
-    }
-
-    pub fn push(&mut self, part: &str) {
-        self.0.push(part)
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn releative_to(&self, base: &Self) -> Path {
-        self.0.releative_to(&base.0)
-    }
-
-    pub fn as_url(&self) -> seed::Url {
-        self.iter()
-            .fold(seed::Url::new(), |url, part| url.add_path_part(part))
-    }
-}
-
-impl std::fmt::Display for AbsPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use std::fmt::Write;
-        f.write_char('/')?;
-        self.iter().format("/").fmt(f)
-    }
-}
-
-impl std::str::FromStr for AbsPath {
-    type Err = ParsePathError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.chars().nth(0) == Some('/') {
-            Ok(s.split('/').collect())
-        } else {
-            Err(ParsePathError("Path is not absolute"))
-        }
-    }
-}
-
-impl std::ops::Index<usize> for AbsPath {
-    type Output = str;
-    fn index(&self, index: usize) -> &str {
-        self.0.index(index)
-    }
-}
-
-impl<S> std::iter::FromIterator<S> for AbsPath
-where
-    S: std::convert::AsRef<str>,
-{
-    fn from_iter<T>(iter: T) -> Self
-    where
-        T: IntoIterator<Item = S>,
-    {
-        Self(Path::from_iter(iter))
-    }
-}
-
-impl std::convert::From<Path> for AbsPath {
-    fn from(path: Path) -> Self {
-        Self(path)
-    }
-}
-
-impl std::convert::From<AbsPath> for Path {
-    fn from(path: AbsPath) -> Self {
-        path.0
-    }
-}
-
-impl serde::ser::Serialize for AbsPath {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::ser::Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
-    }
-}
-
-impl<'de> serde::de::Deserialize<'de> for AbsPath {
-    fn deserialize<D>(deserializer: D) -> Result<AbsPath, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        deserializer.deserialize_str(AbsPathVisitor)
-    }
-}
-
-struct AbsPathVisitor;
-impl<'de> serde::de::Visitor<'de> for AbsPathVisitor {
-    type Value = AbsPath;
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("string path")
     }

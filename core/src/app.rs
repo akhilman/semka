@@ -1,9 +1,10 @@
 use crate::context::{Context, Registry};
 use crate::manifests::SiteManifest;
-use crate::path::{AbsPath, PagePath};
+use crate::path::Path;
 use crate::utils;
 use crate::widget::WidgetFactory;
 use failure::{format_err, Error};
+use lazy_static::lazy_static;
 use seed::{prelude::*, *};
 
 mod about;
@@ -63,17 +64,19 @@ impl Launcher {
 // `init` describes what should happen when your app started.
 fn init(registry: Registry, url: Url, orders: &mut impl Orders<Msg>) -> Model {
     orders
-        .perform_cmd(
-            utils::fetch_site_manifest()
-                .map_ok_or_else(|err| Msg::ShowError(err.into()), Msg::SiteManifestChanged),
-        )
+        .perform_cmd(utils::fetch_site_manifest().map_ok_or_else(
+            |err| Msg::ShowError(err.into()),
+            |manifest| Msg::SiteManifestChanged(fix_site_manifest(manifest)),
+        ))
         .subscribe(|url_changed: subs::UrlChanged| Msg::UrlChanged(url_changed.0));
 
-    let base_path: AbsPath = orders
-        .clone_base_path()
-        .iter()
-        .filter(|p| !p.is_empty())
-        .collect();
+    let base_path = Path::new_absolute().join(
+        orders
+            .clone_base_path()
+            .iter()
+            .filter(|p| !p.is_empty())
+            .collect(),
+    );
     let page_path = url_to_page_path(&url, &base_path);
     let ctx = Context {
         url,
@@ -217,7 +220,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     }
 }
 
-fn path_to_mode(page_path: &PagePath) -> Mode {
+fn path_to_mode(page_path: &Path) -> Mode {
     let first_part = page_path.iter().nth(0).unwrap_or("");
     match first_part {
         "_edit" => Mode::Edit,
@@ -226,9 +229,9 @@ fn path_to_mode(page_path: &PagePath) -> Mode {
     }
 }
 
-fn url_to_page_path(url: &Url, base_path: &AbsPath) -> PagePath {
-    let abs_path: AbsPath = url.path().iter().collect();
-    abs_path.releative_to(base_path).into()
+fn url_to_page_path(url: &Url, base_path: &Path) -> Path {
+    let abs_path: Path = Path::new_absolute().join(url.path().iter().collect());
+    abs_path.releative_to(base_path).unwrap().into()
 }
 
 // ------ ------
@@ -262,3 +265,22 @@ fn view(model: &Model) -> Node<Msg> {
 // ------ ------
 //     Misc
 // ------ ------
+
+fn fix_site_manifest(manifest: SiteManifest) -> SiteManifest {
+    lazy_static! {
+        static ref ROOT_PATH: Path = Path::new_absolute();
+    }
+
+    fn to_releative(path: Path) -> Path {
+        if path.is_absolute() {
+            path.releative_to(&*ROOT_PATH).unwrap()
+        } else {
+            path
+        }
+    }
+    SiteManifest {
+        index_page: to_releative(manifest.index_page),
+        master_page: to_releative(manifest.master_page),
+        ..manifest
+    }
+}

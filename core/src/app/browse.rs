@@ -1,7 +1,6 @@
 use crate::context::Context;
 use crate::manifests::{DocManifest, SiteManifest};
-use crate::path;
-use crate::path::{DocPath, PagePath};
+use crate::path::Path;
 use crate::utils;
 use crate::widget;
 use crate::widget::Widget;
@@ -17,7 +16,11 @@ use std::collections::{BTreeMap, BTreeSet};
 // `init` describes what should happen when your app started.
 pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
     let page_path = current_page_or_index(ctx);
-    let full_path = ctx.site_manifest.master_page.clone().join(&page_path);
+    let full_path = ctx
+        .site_manifest
+        .master_page
+        .clone()
+        .join(page_path.clone());
     Model {
         page_path,
         full_path,
@@ -38,18 +41,18 @@ pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
 // `Model` describes our app state.
 #[derive(Debug)]
 pub struct Model {
-    page_path: PagePath,
-    full_path: PagePath,
+    page_path: Path,
+    full_path: Path,
     widget_tree: WidgetTree,
 }
 
 #[derive(Debug)]
 struct WidgetTree {
-    ready: BTreeMap<DocPath, Box<dyn Widget>>,
-    failed: BTreeMap<DocPath, Error>,
-    loading: BTreeMap<DocPath, CmdHandle>,
-    pending: BTreeSet<DocPath>,
-    deps: BTreeMap<DocPath, Vec<DocPath>>,
+    ready: BTreeMap<Path, Box<dyn Widget>>,
+    failed: BTreeMap<Path, Error>,
+    loading: BTreeMap<Path, CmdHandle>,
+    pending: BTreeSet<Path>,
+    deps: BTreeMap<Path, Vec<Path>>,
 }
 
 // ------ ------
@@ -58,7 +61,7 @@ struct WidgetTree {
 
 // `Msg` describes the different events you can modify state with.
 pub enum Msg {
-    PageChanged(PagePath),
+    PageChanged(Path),
     SiteManifestChanged(SiteManifest),
     Error(Error),
 }
@@ -80,19 +83,23 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
 
 fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
     model.page_path = current_page_or_index(ctx);
-    model.full_path = ctx.site_manifest.master_page.clone().join(&model.page_path);
-    /*
-    let page_path = &model.page_path;
-    let full_path = &model.full_path;
+    model.full_path = ctx
+        .site_manifest
+        .master_page
+        .clone()
+        .join(model.page_path.clone());
 
+    /*
     let widget_tree = &mut model.widget_tree;
     if !widget_tree.contains(full_path) {
-        widget_tree.load(full_path.clone())
+        utils::fetch_doc_manifest()
     }
     */
 }
 
-fn current_page_or_index(ctx: &Context) -> PagePath {
+fn load_document(doc_path: Path, widget_tree: &mut WidgetTree) {}
+
+fn current_page_or_index(ctx: &Context) -> Path {
     if !ctx.page_path.is_empty() {
         ctx.page_path.clone()
     } else if !ctx.site_manifest.index_page.is_empty() {
@@ -103,7 +110,7 @@ fn current_page_or_index(ctx: &Context) -> PagePath {
 }
 
 impl WidgetTree {
-    fn contains(&self, doc_path: &DocPath) -> bool {
+    fn contains(&self, doc_path: &Path) -> bool {
         self.ready.contains_key(doc_path)
             || self.failed.contains_key(doc_path)
             || self.loading.contains_key(doc_path)
@@ -112,7 +119,7 @@ impl WidgetTree {
 
 /*
 async fn resolve_widget(
-    doc_path: &path::DocPath,
+    doc_path: &path::Path,
     reg: &register::Register,
 ) -> Result<Box<dyn widget::Widget>, Error> {
     let manifest = utils::fetch_doc_manifest(doc_path).await?;
@@ -142,6 +149,7 @@ pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
     ]
 }
 
+/*
 fn loading() -> Node<Msg> {
     div!["Loading..."]
 }
@@ -149,6 +157,7 @@ fn loading() -> Node<Msg> {
 fn empty_site() -> Node<Msg> {
     div!["This site is empty"]
 }
+*/
 
 // ------ ------
 //     Misc

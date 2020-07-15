@@ -1,6 +1,6 @@
 use crate::error::WidgetError;
 use crate::manifests::DocManifest;
-use crate::path::{DocPath, PagePath};
+use crate::path::Path;
 use crate::widget::{Widget, WidgetFactory};
 
 #[derive(Debug)]

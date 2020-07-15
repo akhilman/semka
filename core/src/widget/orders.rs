@@ -1,4 +1,4 @@
-use crate::path::DocPath;
+use crate::path::Path;
 use futures::future::{BoxFuture, Future, FutureExt};
 use std::any::Any;
 use std::collections::VecDeque;
@@ -36,7 +36,7 @@ impl WidgetOrders {
         )));
         self
     }
-    pub fn update_deps(&mut self, deps: Vec<DocPath>) -> &mut Self {
+    pub fn update_deps(&mut self, deps: Vec<Path>) -> &mut Self {
         self.orders.push_front(WidgetCmd::UpdateDeps(deps));
         self
     }
@@ -53,6 +53,6 @@ pub enum WidgetCmd {
     FetchText(FilePath),
     */
     PerformCmd(BoxFuture<'static, Box<dyn Any>>),
-    UpdateDeps(Vec<DocPath>),
+    UpdateDeps(Vec<Path>),
     Skip,
 }

@@ -27,7 +27,7 @@ pub async fn fetch_site_manifest() -> Result<manifests::SiteManifest, error::Fet
 }
 
 pub async fn fetch_doc_manifest(
-    doc_path: &path::DocPath,
+    doc_path: &path::Path,
 ) -> Result<manifests::DocManifest, error::FetchError> {
     let doc_name = doc_path
         .iter()

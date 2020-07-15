@@ -7,6 +7,10 @@ pub type Result<T> = std::result::Result<T, SemkaError>;
 pub struct ParsePathError(&'static str);
 
 #[derive(Fail, Debug, Clone)]
+#[fail(display = "Path error: {}", _0)]
+pub struct PathError(pub &'static str);
+
+#[derive(Fail, Debug, Clone)]
 pub enum FetchError {
     #[fail(display = "Can not fetch \"{}\". Serde error {}", _0, _1)]
     SerdeError(String, String),
