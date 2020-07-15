@@ -196,7 +196,7 @@ impl Ord for Path {
                 EitherOrBoth::Right(_) => return Ordering::Less,
             }
         }
-        unreachable!()
+        Ordering::Equal
     }
 }
 

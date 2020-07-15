@@ -26,6 +26,6 @@ impl Registry {
                 return Ok(factory.as_ref());
             }
         }
-        Err(WidgetError::new(&manifest.widget, "Can not find widget"))
+        Err(WidgetError::new(&manifest.widget, "No such widget"))
     }
 }

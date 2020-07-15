@@ -1,10 +1,13 @@
+use crate::builtin_widgets;
 use crate::context::Context;
+use crate::error::FetchError;
 use crate::manifests::{DocManifest, SiteManifest};
 use crate::path::Path;
 use crate::utils;
 use crate::widget;
-use crate::widget::Widget;
-use failure::{format_err, Error};
+use crate::widget::{Widget, WidgetMsg};
+use enclose::enc;
+use failure::{format_err, AsFail, Error};
 use futures::TryFutureExt;
 use seed::{prelude::*, *};
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,9 +29,8 @@ pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
         full_path,
         widget_tree: WidgetTree {
             ready: BTreeMap::new(),
-            failed: BTreeMap::new(),
+            failed: BTreeSet::new(),
             loading: BTreeMap::new(),
-            pending: BTreeSet::new(),
             deps: BTreeMap::new(),
         },
     }
@@ -49,10 +51,9 @@ pub struct Model {
 #[derive(Debug)]
 struct WidgetTree {
     ready: BTreeMap<Path, Box<dyn Widget>>,
-    failed: BTreeMap<Path, Error>,
+    failed: BTreeSet<Path>,
     loading: BTreeMap<Path, CmdHandle>,
-    pending: BTreeSet<Path>,
-    deps: BTreeMap<Path, Vec<Path>>,
+    deps: BTreeMap<Path, BTreeSet<Path>>,
 }
 
 // ------ ------
@@ -63,6 +64,9 @@ struct WidgetTree {
 pub enum Msg {
     PageChanged(Path),
     SiteManifestChanged(SiteManifest),
+    DocManifestFetched(Path, Result<DocManifest, FetchError>),
+    WidgetLoaded(Path),
+    WidgetMsg(Path, WidgetMsg),
     Error(Error),
 }
 
@@ -78,6 +82,35 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             log!("SiteManifestChanged", manifest);
             update_current_page(model, orders, ctx);
         }
+        Msg::DocManifestFetched(path, result) => {
+            log!("DocManifestFetched", path, result);
+            match result {
+                Ok(manifest) => match load_widget(path.clone(), manifest, ctx) {
+                    Ok(widget) => {
+                        model
+                            .widget_tree
+                            .deps
+                            .insert(path.clone(), widget.dependencies());
+                        model.widget_tree.ready.insert(path.clone(), widget);
+                        orders.send_msg(Msg::WidgetLoaded(path));
+                    }
+                    Err(err) => {
+                        widget_failed(path, &err, model);
+                        orders.send_msg(Msg::Error(err.into()));
+                    }
+                },
+                Err(err) => {
+                    widget_failed(path, &err, model);
+                    orders.send_msg(Msg::Error(err.into()));
+                }
+            }
+        }
+        Msg::WidgetLoaded(path) => {
+            log!("WidgetLoaded", path);
+        }
+        Msg::WidgetMsg(path, msg) => {
+            log!("WidgetMsg", path);
+        }
     }
 }
 
@@ -89,15 +122,36 @@ fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &C
         .clone()
         .join(model.page_path.clone());
 
-    /*
+    let full_path = &model.full_path;
     let widget_tree = &mut model.widget_tree;
     if !widget_tree.contains(full_path) {
-        utils::fetch_doc_manifest()
+        let fut = utils::fetch_doc_manifest(full_path.clone())
+            .map(enc!((full_path) move |result| {Msg::DocManifestFetched(full_path, result)}));
+        let handle = orders.perform_cmd_with_handle(fut);
+        widget_tree.loading.insert(full_path.clone(), handle);
     }
-    */
 }
 
-fn load_document(doc_path: Path, widget_tree: &mut WidgetTree) {}
+fn load_widget(
+    doc_path: Path,
+    manifest: DocManifest,
+    ctx: &Context,
+) -> Result<Box<dyn Widget>, Error> {
+    let factory = ctx.registry.resolve(&manifest)?;
+    let widget = factory.create(doc_path, manifest)?;
+    Ok(widget)
+}
+
+fn widget_failed(doc_path: Path, error: &impl AsFail, model: &mut Model) {
+    let widget_tree = &mut model.widget_tree;
+    widget_tree.failed.insert(doc_path.clone());
+    widget_tree.loading.remove(&doc_path);
+    widget_tree.deps.remove(&doc_path);
+    widget_tree.ready.insert(
+        doc_path.clone(),
+        builtin_widgets::Failed::new(doc_path, error),
+    );
+}
 
 fn current_page_or_index(ctx: &Context) -> Path {
     if !ctx.page_path.is_empty() {
@@ -111,9 +165,7 @@ fn current_page_or_index(ctx: &Context) -> Path {
 
 impl WidgetTree {
     fn contains(&self, doc_path: &Path) -> bool {
-        self.ready.contains_key(doc_path)
-            || self.failed.contains_key(doc_path)
-            || self.loading.contains_key(doc_path)
+        self.ready.contains_key(doc_path) || self.loading.contains_key(doc_path)
     }
 }
 
@@ -137,6 +189,8 @@ async fn resolve_widget(
 #[allow(clippy::trivially_copy_pass_by_ref)]
 // `view` describes what to display.
 pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
+    let doc_path = model.full_path.clone();
+    let maybe_root_widget = model.widget_tree.ready.get(&doc_path);
     div![
         C!["counter"],
         div![span!["Current path: "], span![model.page_path.to_string()],],
@@ -146,6 +200,12 @@ pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
             serde_json::to_string_pretty(&ctx.site_manifest).unwrap()
         ]],
         // button![model, ev(Ev::Click, |_| Msg::Increment),],
+        match maybe_root_widget {
+            Some(widget) => widget
+                .view(ctx)
+                .map_msg(|msg| Msg::WidgetMsg(doc_path, msg)),
+            None => div![format!("No document with path \"{}\"", doc_path)],
+        }
     ]
 }
 

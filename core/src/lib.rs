@@ -4,6 +4,7 @@
 #![allow(clippy::wildcard_imports)]
 
 pub mod app;
+mod builtin_widgets;
 pub mod constants;
 pub mod context;
 pub mod error;

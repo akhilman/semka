@@ -1,6 +1,5 @@
 use failure::Fail;
 
-pub type Result<T> = std::result::Result<T, SemkaError>;
 
 #[derive(Fail, Debug, Clone)]
 #[fail(display = "Can not parse path: {}", _0)]
@@ -104,7 +103,7 @@ impl FetchError {
 }
 
 #[derive(Fail, Debug, Clone)]
-#[fail(display = "Error in widget {} {}", widget, err)]
+#[fail(display = "Error in widget \"{}\": {}", widget, err)]
 pub struct WidgetError {
     widget: String,
     err: &'static str,
@@ -116,20 +115,5 @@ impl WidgetError {
             widget: widget.as_ref().to_string(),
             err,
         }
-    }
-}
-
-// TODO: replace with failure::Error
-#[derive(Fail, Debug, Clone)]
-pub enum SemkaError {
-    #[fail(display = "Error: {}", _0)]
-    ParsePathError(ParsePathError),
-    #[fail(display = "Error: {}", _0)]
-    FetchError(FetchError),
-}
-
-impl From<FetchError> for SemkaError {
-    fn from(err: FetchError) -> Self {
-        SemkaError::FetchError(err)
     }
 }

@@ -13,8 +13,8 @@ pub trait Widget: std::fmt::Debug {
     fn dependencies(&self) -> BTreeSet<Path> {
         BTreeSet::new()
     }
-    fn update(&mut self, msg: &WidgetMsg, context: &mut WidgetOrders, ctx: &Context);
-    fn view(&self, context: &mut WidgetOrders, ctx: &Context);
+    fn update(&mut self, _msg: &WidgetMsg, _context: &mut WidgetOrders, _ctx: &Context) {}
+    fn view(&self, ctx: &Context) -> seed::virtual_dom::Node<WidgetMsg>;
 }
 
 pub enum WidgetMsg {
@@ -23,6 +23,6 @@ pub enum WidgetMsg {
 
 pub trait WidgetFactory: std::fmt::Debug {
     fn can_handle(&self, manifest: &DocManifest) -> bool;
-    fn create(&self, manifest: DocManifest, doc_path: Path)
+    fn create(&self, doc_path: Path, manifest: DocManifest)
         -> Result<Box<dyn Widget>, WidgetError>;
 }

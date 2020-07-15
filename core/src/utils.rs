@@ -3,6 +3,7 @@ use crate::error;
 use crate::manifests;
 use crate::path;
 use futures::future::{Future, TryFutureExt};
+use std::borrow::Borrow;
 
 pub fn fetch_json<U, T>(url: U) -> impl Future<Output = Result<T, error::FetchError>>
 where
@@ -27,13 +28,14 @@ pub async fn fetch_site_manifest() -> Result<manifests::SiteManifest, error::Fet
 }
 
 pub async fn fetch_doc_manifest(
-    doc_path: &path::Path,
+    doc_path: impl Borrow<path::Path>,
 ) -> Result<manifests::DocManifest, error::FetchError> {
     let doc_name = doc_path
+        .borrow()
         .iter()
         .nth(0)
         .ok_or(error::FetchError::RequestError(
-            doc_path.to_string(),
+            doc_path.borrow().to_string(),
             "Document path is empty".to_string(),
         ))?;
     let doc_manifest_path = path::Path::new()
