@@ -4,7 +4,6 @@ use crate::path::Path;
 use crate::utils;
 use crate::widget::WidgetFactory;
 use failure::{format_err, Error};
-use lazy_static::lazy_static;
 use seed::{prelude::*, *};
 
 mod about;
@@ -75,7 +74,7 @@ fn init(registry: Registry, url: Url, orders: &mut impl Orders<Msg>) -> Model {
             .clone_base_path()
             .iter()
             .filter(|p| !p.is_empty())
-            .collect(),
+            .collect::<Path>(),
     );
     let page_path = url_to_page_path(&url, &base_path);
     let ctx = Context {
@@ -230,8 +229,8 @@ fn path_to_mode(page_path: &Path) -> Mode {
 }
 
 fn url_to_page_path(url: &Url, base_path: &Path) -> Path {
-    let abs_path: Path = Path::new_absolute().join(url.path().iter().collect());
-    abs_path.releative_to(base_path).unwrap().into()
+    let abs_path: Path = Path::new_absolute().join(url.path().iter().collect::<Path>());
+    abs_path.releative_to(base_path).unwrap()
 }
 
 // ------ ------
@@ -267,13 +266,9 @@ fn view(model: &Model) -> Node<Msg> {
 // ------ ------
 
 fn fix_site_manifest(manifest: SiteManifest) -> SiteManifest {
-    lazy_static! {
-        static ref ROOT_PATH: Path = Path::new_absolute();
-    }
-
     fn to_releative(path: Path) -> Path {
         if path.is_absolute() {
-            path.releative_to(&*ROOT_PATH).unwrap()
+            path.releative_to(Path::new_absolute()).unwrap()
         } else {
             path
         }

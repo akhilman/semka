@@ -1,97 +1,126 @@
 use crate::error::{ParsePathError, PathError};
 use itertools::{EitherOrBoth, Itertools};
 use std::fmt::Write;
+use std::rc::Rc;
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Path {
+struct PathInner {
     all_parts: String,
     ends_of_parts: Vec<usize>,
     absoulute: bool,
 }
 
-impl Path {
-    pub fn new() -> Self {
+impl PathInner {
+    fn new() -> Self {
         Self {
             all_parts: "".to_string(),
             ends_of_parts: vec![],
             absoulute: false,
         }
     }
-    pub fn new_absolute() -> Self {
+    fn new_absolute() -> Self {
         Self {
-            all_parts: "".to_string(),
-            ends_of_parts: vec![],
             absoulute: true,
+            ..Self::new()
         }
+    }
+    fn get(&self, index: usize) -> Option<&str> {
+        let start = if index == 0 {
+            0
+        } else {
+            self.ends_of_parts.get(index - 1).cloned()?
+        };
+        let end = self.ends_of_parts.get(index).cloned()?;
+        self.all_parts.get(start..end)
+    }
+    fn push(&mut self, part: &str) {
+        self.all_parts.push_str(part);
+        self.ends_of_parts.push(self.all_parts.len())
+    }
+    fn len(&self) -> usize {
+        self.ends_of_parts.len()
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct Path(Rc<PathInner>);
+
+impl Path {
+    pub fn new() -> Self {
+        Self(Rc::new(PathInner::new()))
+    }
+    pub fn new_absolute() -> Self {
+        Self(Rc::new(PathInner::new_absolute()))
     }
     pub fn iter(&self) -> PathIterator {
         PathIterator {
-            path: self,
+            inner: &*self.0,
             forward_i: 0,
             back_i: self.len(),
         }
     }
-    pub fn push(&mut self, part: &str) {
-        self.all_parts.push_str(part);
-        self.ends_of_parts.push(self.all_parts.len())
+    pub fn add(&self, part: impl AsRef<str>) -> Self {
+        let mut new_inner = (*self.0).clone();
+        new_inner.push(part.as_ref());
+        Self(Rc::new(new_inner))
     }
-    pub fn append(&mut self, other: &Self) {
-        if other.is_absolute() {
-            std::mem::swap(self, &mut other.clone());
-        } else {
-            other.iter().for_each(|part| self.push(part));
-        }
-    }
-    pub fn add(mut self, part: &str) -> Self {
-        self.push(part);
-        self
-    }
-    pub fn join(mut self, other: Self) -> Self {
-        if other.is_absolute() {
-            other
+    pub fn join(&self, other: impl AsRef<Self>) -> Self {
+        if other.as_ref().is_absolute() {
+            other.as_ref().clone()
         } else if self.is_absolute() && self.is_empty() {
-            Self {
+            let new_inner = PathInner {
                 absoulute: true,
-                ..other
-            }
+                ..(*other.as_ref().0).clone()
+            };
+            Self(Rc::new(new_inner))
+        } else if other.as_ref().is_empty() {
+            self.clone()
         } else {
-            self.append(&other);
-            self
+            let mut new_inner = (*self.0).clone();
+            other.as_ref().iter().for_each(|part| new_inner.push(part));
+            Self(Rc::new(new_inner))
         }
     }
-    pub fn releative_to(self, base: &Self) -> Result<Self, PathError> {
-        match (base.is_absolute(), self.is_absolute()) {
+    pub fn releative_to(self, base: impl AsRef<Self>) -> Result<Self, PathError> {
+        match (base.as_ref().is_absolute(), self.is_absolute()) {
             (true, true) | (false, false) => {
-                let mut new = Self::new();
-                releative_path(base.iter(), self.iter()).for_each(|part| new.push(part));
-                Ok(new)
+                Ok(releative_path(base.as_ref().iter(), self.iter()).collect())
             }
             _ => Err(PathError("Can not find releative path")),
         }
     }
-    pub fn is_subpath(&self, rhs: &Self) -> bool {
-        match (self.is_absolute(), rhs.is_absolute()) {
-            (true, true) | (false, false) => is_subpath(self.iter(), rhs.iter()),
+    pub fn is_subpath(&self, rhs: impl AsRef<Self>) -> bool {
+        match (self.is_absolute(), rhs.as_ref().is_absolute()) {
+            (true, true) | (false, false) => is_subpath(self.iter(), rhs.as_ref().iter()),
             _ => false,
         }
     }
-    pub fn is_superpath(&self, rhs: &Self) -> bool {
-        rhs.is_subpath(self)
+    pub fn is_superpath(&self, rhs: impl AsRef<Self>) -> bool {
+        match (self.is_absolute(), rhs.as_ref().is_absolute()) {
+            (true, true) | (false, false) => is_subpath(rhs.as_ref().iter(), self.iter()),
+            _ => false,
+        }
     }
     pub fn is_absolute(&self) -> bool {
-        self.absoulute
+        self.0.absoulute
     }
     pub fn is_empty(&self) -> bool {
-        self.ends_of_parts.is_empty()
+        self.0.ends_of_parts.is_empty()
     }
     pub fn len(&self) -> usize {
-        self.ends_of_parts.len()
+        self.0.len()
     }
 }
 
 impl Default for Path {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl AsRef<Path> for Path {
+    fn as_ref(&self) -> &Path {
+        self
     }
 }
 
@@ -116,7 +145,7 @@ impl std::fmt::Display for Path {
 impl std::str::FromStr for Path {
     type Err = ParsePathError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let path = s.split('/').filter(|s| !s.is_empty()).collect();
+        let path: Path = s.split('/').filter(|s| !s.is_empty()).collect();
         Ok(if s.starts_with("/") {
             Path::new_absolute().join(path)
         } else {
@@ -128,18 +157,12 @@ impl std::str::FromStr for Path {
 impl std::ops::Index<usize> for Path {
     type Output = str;
     fn index(&self, index: usize) -> &str {
-        let start = if index == 0 {
-            0
-        } else {
-            self.ends_of_parts[index - 1]
-        };
-        let end = self.ends_of_parts[index];
-        &self.all_parts[start..end]
+        self.0.get(index).expect("Index in range")
     }
 }
 
 pub struct PathIterator<'a> {
-    path: &'a Path,
+    inner: &'a PathInner,
     forward_i: usize,
     back_i: usize,
 }
@@ -151,7 +174,7 @@ impl<'a> Iterator for PathIterator<'a> {
         if self.forward_i < self.back_i {
             let i = self.forward_i;
             self.forward_i += 1;
-            Some(&self.path[i])
+            self.inner.get(i)
         } else {
             None
         }
@@ -161,7 +184,7 @@ impl<'a> DoubleEndedIterator for PathIterator<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.forward_i < self.back_i {
             self.back_i -= 1;
-            Some(&self.path[self.back_i])
+            self.inner.get(self.back_i)
         } else {
             None
         }
@@ -176,10 +199,13 @@ where
     where
         T: IntoIterator<Item = S>,
     {
-        iter.into_iter().fold(Path::new(), |mut path, part| {
-            path.push(part.as_ref());
-            path
-        })
+        Self(Rc::new(iter.into_iter().fold(
+            PathInner::new(),
+            |mut path, part| {
+                path.push(part.as_ref());
+                path
+            },
+        )))
     }
 }
 
