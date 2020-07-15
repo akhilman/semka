@@ -137,7 +137,7 @@ fn load_widget(
     manifest: DocManifest,
     ctx: &Context,
 ) -> Result<Box<dyn Widget>, Error> {
-    let factory = ctx.registry.resolve(&manifest)?;
+    let factory = ctx.registry.get_widget(&manifest.widget)?;
     let widget = factory.create(doc_path, manifest)?;
     Ok(widget)
 }

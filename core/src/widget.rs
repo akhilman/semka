@@ -22,7 +22,7 @@ pub enum WidgetMsg {
 }
 
 pub trait WidgetFactory: std::fmt::Debug {
-    fn can_handle(&self, manifest: &DocManifest) -> bool;
+    fn can_handle(&self) -> BTreeSet<&'static str>;
     fn create(&self, doc_path: Path, manifest: DocManifest)
         -> Result<Box<dyn Widget>, WidgetError>;
 }
