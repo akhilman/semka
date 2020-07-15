@@ -125,6 +125,9 @@ fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &C
     let full_path = &model.full_path;
     let widget_tree = &mut model.widget_tree;
     if !widget_tree.contains(full_path) {
+        widget_tree
+            .ready
+            .insert(full_path.clone(), create_loading_widget(full_path, ctx));
         let fut = utils::fetch_doc_manifest(full_path.clone())
             .map(enc!((full_path) move |result| {Msg::DocManifestFetched(full_path, result)}));
         let handle = orders.perform_cmd_with_handle(fut);
@@ -209,15 +212,18 @@ pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
     ]
 }
 
-/*
-fn loading() -> Node<Msg> {
-    div!["Loading..."]
+fn create_loading_widget(doc_path: &Path, ctx: &Context) -> Box<dyn Widget> {
+    let manifest = DocManifest {
+        widget: "loading".to_string(),
+        ..DocManifest::default()
+    };
+    ctx.registry
+        .get_widget("loading")
+        .ok()
+        .map(|factory| factory.create(doc_path.clone(), manifest).ok())
+        .flatten()
+        .unwrap_or_else(builtin_widgets::Loading::new)
 }
-
-fn empty_site() -> Node<Msg> {
-    div!["This site is empty"]
-}
-*/
 
 // ------ ------
 //     Misc

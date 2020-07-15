@@ -14,3 +14,11 @@ pub struct SiteManifest {
 pub struct DocManifest {
     pub widget: String,
 }
+
+impl Default for DocManifest {
+    fn default() -> Self {
+        Self {
+            widget: "empty".to_string(),
+        }
+    }
+}

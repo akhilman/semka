@@ -21,8 +21,10 @@ pub struct Launcher {
 
 impl Launcher {
     pub fn new() -> Self {
+        use crate::builtin_widgets;
+        let registry = Registry::new().add_widget(builtin_widgets::LoadingFactory::new());
         Self {
-            registry: Registry::new(),
+            registry,
             root_element: None,
         }
     }

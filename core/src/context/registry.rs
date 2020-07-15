@@ -1,7 +1,5 @@
 use crate::error::WidgetError;
-use crate::manifests::DocManifest;
-use crate::path::Path;
-use crate::widget::{Widget, WidgetFactory};
+use crate::widget::WidgetFactory;
 use std::collections::BTreeMap;
 
 #[derive(Debug)]
