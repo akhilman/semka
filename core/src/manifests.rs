@@ -1,18 +1,13 @@
 use crate::path;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SiteManifest {
-    pub root_document: path::DocPath,
-}
-
-impl Default for SiteManifest {
-    fn default() -> Self {
-        Self {
-            root_document: "emptySite".parse().unwrap(),
-        }
-    }
+    #[serde(default)]
+    pub index_page: path::PagePath,
+    #[serde(default)]
+    pub master_page: path::PagePath,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

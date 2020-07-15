@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::manifests::{DocManifest, SiteManifest};
 use crate::path;
-use crate::path::DocPath;
+use crate::path::{DocPath, PagePath};
 use crate::utils;
 use crate::widget;
 use crate::widget::Widget;
@@ -15,10 +15,12 @@ use std::collections::{BTreeMap, BTreeSet};
 // ------ ------
 
 // `init` describes what should happen when your app started.
-pub fn init(url: Url, orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
+pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
+    let page_path = current_page_or_index(ctx);
+    let full_path = ctx.site_manifest.master_page.clone().join(&page_path);
     Model {
-        current: None,
-        master: None,
+        page_path,
+        full_path,
         widget_tree: WidgetTree {
             ready: BTreeMap::new(),
             failed: BTreeMap::new(),
@@ -36,8 +38,8 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
 // `Model` describes our app state.
 #[derive(Debug)]
 pub struct Model {
-    current: Option<DocPath>,
-    master: Option<DocPath>,
+    page_path: PagePath,
+    full_path: PagePath,
     widget_tree: WidgetTree,
 }
 
@@ -56,7 +58,7 @@ struct WidgetTree {
 
 // `Msg` describes the different events you can modify state with.
 pub enum Msg {
-    UrlChanged(Url),
+    PageChanged(PagePath),
     SiteManifestChanged(SiteManifest),
     Error(Error),
 }
@@ -64,11 +66,47 @@ pub enum Msg {
 // `update` describes how to handle each `Msg`.
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
     match msg {
-        Msg::UrlChanged(url) => log!(format!("UrlChanged({})", url)),
+        Msg::PageChanged(page) => {
+            log!(format!("PageChanged({})", page));
+            update_current_page(model, orders, ctx);
+        }
         Msg::Error(err) => error!(err),
         Msg::SiteManifestChanged(manifest) => {
             log!("SiteManifestChanged", manifest);
+            update_current_page(model, orders, ctx);
         }
+    }
+}
+
+fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
+    model.page_path = current_page_or_index(ctx);
+    model.full_path = ctx.site_manifest.master_page.clone().join(&model.page_path);
+    /*
+    let page_path = &model.page_path;
+    let full_path = &model.full_path;
+
+    let widget_tree = &mut model.widget_tree;
+    if !widget_tree.contains(full_path) {
+        widget_tree.load(full_path.clone())
+    }
+    */
+}
+
+fn current_page_or_index(ctx: &Context) -> PagePath {
+    if !ctx.page_path.is_empty() {
+        ctx.page_path.clone()
+    } else if !ctx.site_manifest.index_page.is_empty() {
+        ctx.site_manifest.index_page.clone()
+    } else {
+        "index".parse().unwrap()
+    }
+}
+
+impl WidgetTree {
+    fn contains(&self, doc_path: &DocPath) -> bool {
+        self.ready.contains_key(doc_path)
+            || self.failed.contains_key(doc_path)
+            || self.loading.contains_key(doc_path)
     }
 }
 
@@ -94,7 +132,8 @@ async fn resolve_widget(
 pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
     div![
         C!["counter"],
-        div![span!["Current path: "], span![ctx.page_path.to_string()],],
+        div![span!["Current path: "], span![model.page_path.to_string()],],
+        div![span!["Full path: "], span![model.full_path.to_string()],],
         div![span!["Base path: "], span![ctx.base_path.to_string()],],
         div![pre![
             serde_json::to_string_pretty(&ctx.site_manifest).unwrap()

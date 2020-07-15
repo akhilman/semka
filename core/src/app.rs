@@ -178,7 +178,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         browse::init(url.clone(), &mut browse_orders, &model.ctx)
                     });
                     browse::update(
-                        browse::Msg::UrlChanged(url),
+                        browse::Msg::PageChanged(model.ctx.page_path.clone()),
                         &mut browse_model,
                         &mut browse_orders,
                         &model.ctx,

@@ -62,6 +62,12 @@ impl Path {
     }
 }
 
+impl Default for Path {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl std::fmt::Debug for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"")?;
@@ -219,8 +225,11 @@ macro_rules! path_variant {
             pub fn add(self, part: &str) -> Self {
                 Self(self.0.add(part))
             }
-            pub fn append(&mut self, other: &mut Self) {
+            pub fn append(&mut self, other: &Self) {
                 self.0.append(&other.0)
+            }
+            pub fn join(self, other: &Self) -> Self {
+                Self(self.0.join(&other.0))
             }
             pub fn releative_to(&self, base: &Self) -> Self {
                 Self(self.0.releative_to(&base.0))
@@ -236,6 +245,12 @@ macro_rules! path_variant {
             }
             pub fn len(&self) -> usize {
                 self.0.len()
+            }
+        }
+
+        impl Default for $t {
+            fn default() -> Self {
+                Self(Path::default())
             }
         }
 
