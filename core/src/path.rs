@@ -82,7 +82,11 @@ impl Path {
         }
     }
     pub fn head(&self) -> Self {
-        self.iter().take(1).collect()
+        if self.len() <= 1 {
+            self.clone()
+        } else {
+            self.iter().take(1).collect()
+        }
     }
     pub fn tail(&self) -> Self {
         self.iter().skip(1).collect()
