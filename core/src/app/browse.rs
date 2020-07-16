@@ -4,11 +4,10 @@ use crate::error::FetchError;
 use crate::manifests::{DocManifest, SiteManifest};
 use crate::path::Path;
 use crate::utils;
-use crate::widget;
-use crate::widget::{Widget, WidgetMsg};
+use crate::widget::{Widget, WidgetCmd, WidgetMsg, WidgetOrders};
 use enclose::enc;
 use failure::{format_err, AsFail, Error};
-use futures::TryFutureExt;
+use futures::FutureExt;
 use seed::{prelude::*, *};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,12 +26,9 @@ pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
     Model {
         page_path,
         full_path,
-        widget_tree: WidgetTree {
-            ready: BTreeMap::new(),
-            failed: BTreeSet::new(),
-            loading: BTreeMap::new(),
-            deps: BTreeMap::new(),
-        },
+        widgets: BTreeMap::new(),
+        failed: BTreeSet::new(),
+        dependencies: BTreeMap::new(),
     }
 }
 
@@ -45,15 +41,9 @@ pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
 pub struct Model {
     page_path: Path,
     full_path: Path,
-    widget_tree: WidgetTree,
-}
-
-#[derive(Debug)]
-struct WidgetTree {
-    ready: BTreeMap<Path, Box<dyn Widget>>,
+    widgets: BTreeMap<Path, Box<dyn Widget>>,
     failed: BTreeSet<Path>,
-    loading: BTreeMap<Path, CmdHandle>,
-    deps: BTreeMap<Path, BTreeSet<Path>>,
+    dependencies: BTreeMap<Path, BTreeSet<Path>>,
 }
 
 // ------ ------
@@ -65,8 +55,11 @@ pub enum Msg {
     PageChanged(Path),
     SiteManifestChanged(SiteManifest),
     DocManifestFetched(Path, Result<DocManifest, FetchError>),
-    WidgetLoaded(Path),
+    WidgetReady(Path),
+    WidgetFailed(Path, Error),
     WidgetMsg(Path, WidgetMsg),
+    UpdateDependencies(Path, BTreeSet<Path>),
+    DependenciesChanged(Path),
     Error(Error),
 }
 
@@ -74,7 +67,7 @@ pub enum Msg {
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
     match msg {
         Msg::PageChanged(page) => {
-            log!(format!("PageChanged({})", page));
+            log!("PageChanged", page);
             update_current_page(model, orders, ctx);
         }
         Msg::Error(err) => error!(err),
@@ -84,35 +77,104 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
         }
         Msg::DocManifestFetched(path, result) => {
             log!("DocManifestFetched", path, result);
+            let result = result.map_err(Error::from).and_then(enc!(
+                (path) | manifest | resolve_widget(path, manifest, ctx)
+            ));
             match result {
-                Ok(manifest) => match load_widget(path.clone(), manifest, ctx) {
-                    Ok(widget) => {
-                        model
-                            .widget_tree
-                            .deps
-                            .insert(path.clone(), widget.dependencies());
-                        model.widget_tree.ready.insert(path.clone(), widget);
-                        orders.send_msg(Msg::WidgetLoaded(path));
-                    }
-                    Err(err) => {
-                        widget_failed(path, &err, model);
-                        orders.send_msg(Msg::Error(err.into()));
-                    }
-                },
+                Ok(widget) => {
+                    model.widgets.insert(path.clone(), widget);
+                    orders.send_msg(Msg::WidgetReady(path));
+                }
                 Err(err) => {
-                    widget_failed(path, &err, model);
-                    orders.send_msg(Msg::Error(err.into()));
+                    orders.send_msg(Msg::WidgetFailed(path, err.into()));
                 }
             }
         }
-        Msg::WidgetLoaded(path) => {
-            log!("WidgetLoaded", path);
+        Msg::WidgetReady(path) => {
+            log!("WidgetReady", path);
+            let result = model
+                .widgets
+                .get_mut(&path)
+                .ok_or(format_err!("Widget for \"{}\" not found", &path))
+                .and_then(|widget| widget.init(ctx));
+            match result {
+                Ok(Some(w_orders)) => {
+                    perform_widget_orders(w_orders, path, orders);
+                }
+                Ok(None) => (),
+                Err(err) => {
+                    orders.send_msg(Msg::WidgetFailed(path, err));
+                }
+            }
         }
-        Msg::WidgetMsg(path, msg) => {
+        Msg::WidgetFailed(path, error) => {
+            log!("WidgetFailed", path, error);
+            model.dependencies.remove(&path);
+            model
+                .widgets
+                .insert(path.clone(), failed_widget(path.clone(), &error));
+            orders
+                .send_msg(Msg::WidgetReady(path))
+                .send_msg(Msg::Error(error));
+        }
+        Msg::WidgetMsg(path, _msg) => {
             log!("WidgetMsg", path);
+        }
+        Msg::UpdateDependencies(path, dependencies) => {
+            log!("UpdateDependencies", path, dependencies);
+            use std::collections::btree_map::Entry;
+            match model.dependencies.entry(path.clone()) {
+                Entry::Vacant(entry) => {
+                    entry.insert(dependencies);
+                    load_dependencies(&path, model, orders, ctx);
+                    orders.send_msg(Msg::DependenciesChanged(path));
+                }
+                Entry::Occupied(mut entry) => {
+                    if *entry.get() != dependencies {
+                        entry.insert(dependencies);
+                        load_dependencies(&path, model, orders, ctx);
+                        orders.send_msg(Msg::DependenciesChanged(path));
+                    } else {
+                        orders.skip();
+                    }
+                }
+            }
+        }
+        Msg::DependenciesChanged(path) => {
+            log!("DependenciesChanged", path);
         }
     }
 }
+
+// ------ ------
+//     View
+// ------ ------
+
+// (Remove the line below once your `Model` become more complex.)
+#[allow(clippy::trivially_copy_pass_by_ref)]
+// `view` describes what to display.
+pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
+    let doc_path = model.full_path.clone();
+    let root_node = model
+        .widgets
+        .get(&doc_path)
+        .map(|widget| widget.view(ctx))
+        .unwrap_or(div![format!("Widget for \"{}\" not found", &doc_path)]);
+    div![
+        C!["counter"],
+        div![span!["Current path: "], span![model.page_path.to_string()],],
+        div![span!["Full path: "], span![model.full_path.to_string()],],
+        div![span!["Base path: "], span![ctx.base_path.to_string()],],
+        div![pre![
+            serde_json::to_string_pretty(&ctx.site_manifest).unwrap()
+        ]],
+        root_node.map_msg(move |msg| Msg::WidgetMsg(doc_path, msg)),
+    ]
+}
+
+// ------ ------
+//     Misc
+// ------ ------
 
 fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
     model.page_path = current_page_or_index(ctx);
@@ -122,38 +184,49 @@ fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &C
         .clone()
         .join(model.page_path.clone());
 
-    let full_path = &model.full_path;
-    let widget_tree = &mut model.widget_tree;
-    if !widget_tree.contains(full_path) {
-        widget_tree
-            .ready
-            .insert(full_path.clone(), create_loading_widget(full_path, ctx));
-        let fut = utils::fetch_doc_manifest(full_path.clone())
-            .map(enc!((full_path) move |result| {Msg::DocManifestFetched(full_path, result)}));
-        let handle = orders.perform_cmd_with_handle(fut);
-        widget_tree.loading.insert(full_path.clone(), handle);
+    if !model.widgets.contains_key(&model.full_path) {
+        load_document(model.full_path.clone(), model, orders, ctx);
     }
 }
 
-fn load_widget(
+fn load_document(doc_path: Path, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
+    model
+        .widgets
+        .insert(doc_path.clone(), loading_widget(&doc_path, ctx));
+    let fut = utils::fetch_doc_manifest(doc_path.clone())
+        .map(enc!((doc_path) move |result| {Msg::DocManifestFetched(doc_path, result)}));
+    orders.perform_cmd(fut);
+}
+
+fn load_dependencies(
+    doc_path: &Path,
+    model: &mut Model,
+    orders: &mut impl Orders<Msg>,
+    ctx: &Context,
+) {
+    let to_load: Vec<Path> = model
+        .dependencies
+        .get(doc_path)
+        .into_iter()
+        .map(BTreeSet::iter)
+        .flatten()
+        .filter(|dep| !model.widgets.contains_key(dep))
+        .cloned()
+        .collect();
+    for dep in to_load {
+        load_document(dep, model, orders, ctx)
+    }
+}
+
+fn resolve_widget(
     doc_path: Path,
     manifest: DocManifest,
     ctx: &Context,
 ) -> Result<Box<dyn Widget>, Error> {
-    let factory = ctx.registry.get_widget(&manifest.widget)?;
-    let widget = factory.create(doc_path, manifest)?;
-    Ok(widget)
-}
-
-fn widget_failed(doc_path: Path, error: &impl AsFail, model: &mut Model) {
-    let widget_tree = &mut model.widget_tree;
-    widget_tree.failed.insert(doc_path.clone());
-    widget_tree.loading.remove(&doc_path);
-    widget_tree.deps.remove(&doc_path);
-    widget_tree.ready.insert(
-        doc_path.clone(),
-        builtin_widgets::Failed::new(doc_path, error),
-    );
+    Ok(ctx
+        .registry
+        .get_widget(&manifest.widget)?
+        .create(doc_path, manifest)?)
 }
 
 fn current_page_or_index(ctx: &Context) -> Path {
@@ -166,53 +239,26 @@ fn current_page_or_index(ctx: &Context) -> Path {
     }
 }
 
-impl WidgetTree {
-    fn contains(&self, doc_path: &Path) -> bool {
-        self.ready.contains_key(doc_path) || self.loading.contains_key(doc_path)
-    }
-}
-
-/*
-async fn resolve_widget(
-    doc_path: &path::Path,
-    reg: &register::Register,
-) -> Result<Box<dyn widget::Widget>, Error> {
-    let manifest = utils::fetch_doc_manifest(doc_path).await?;
-    let factory = reg.resolve(&manifest)?;
-    let widget = factory.create(manifest, doc_path.clone())?;
-    Ok(widget)
-}
-*/
-
-// ------ ------
-//     View
-// ------ ------
-
-// (Remove the line below once your `Model` become more complex.)
-#[allow(clippy::trivially_copy_pass_by_ref)]
-// `view` describes what to display.
-pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
-    let doc_path = model.full_path.clone();
-    let maybe_root_widget = model.widget_tree.ready.get(&doc_path);
-    div![
-        C!["counter"],
-        div![span!["Current path: "], span![model.page_path.to_string()],],
-        div![span!["Full path: "], span![model.full_path.to_string()],],
-        div![span!["Base path: "], span![ctx.base_path.to_string()],],
-        div![pre![
-            serde_json::to_string_pretty(&ctx.site_manifest).unwrap()
-        ]],
-        // button![model, ev(Ev::Click, |_| Msg::Increment),],
-        match maybe_root_widget {
-            Some(widget) => widget
-                .view(ctx)
-                .map_msg(|msg| Msg::WidgetMsg(doc_path, msg)),
-            None => div![format!("No document with path \"{}\"", doc_path)],
+fn perform_widget_orders(w_orders: WidgetOrders, doc_path: Path, orders: &mut impl Orders<Msg>) {
+    w_orders.orders.into_iter().for_each(|cmd| {
+        let doc_path = doc_path.clone();
+        match cmd {
+            WidgetCmd::PerformCmd(fut) => {
+                orders.perform_cmd(
+                    fut.map(|result| Msg::WidgetMsg(doc_path, WidgetMsg::CmdResult(result))),
+                );
+            }
+            WidgetCmd::UpdateDependencies(dependencies) => {
+                orders.send_msg(Msg::UpdateDependencies(doc_path, dependencies));
+            }
+            WidgetCmd::Skip => {
+                orders.skip();
+            }
         }
-    ]
+    })
 }
 
-fn create_loading_widget(doc_path: &Path, ctx: &Context) -> Box<dyn Widget> {
+fn loading_widget(doc_path: &Path, ctx: &Context) -> Box<dyn Widget> {
     let manifest = DocManifest {
         widget: "loading".to_string(),
         ..DocManifest::default()
@@ -225,6 +271,6 @@ fn create_loading_widget(doc_path: &Path, ctx: &Context) -> Box<dyn Widget> {
         .unwrap_or_else(builtin_widgets::Loading::new)
 }
 
-// ------ ------
-//     Misc
-// ------ ------
+fn failed_widget(doc_path: Path, error: &impl AsFail) -> Box<dyn Widget> {
+    builtin_widgets::Failed::new(doc_path, error)
+}

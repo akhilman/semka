@@ -2,18 +2,20 @@ use crate::context::Context;
 use crate::error::WidgetError;
 use crate::manifests::DocManifest;
 use crate::path::Path;
+use failure::Error;
 use std::any::Any;
-use std::collections::BTreeSet;
 
 pub mod orders;
 
 pub use orders::{WidgetCmd, WidgetOrders};
 
 pub trait Widget: std::fmt::Debug {
-    fn dependencies(&self) -> BTreeSet<Path> {
-        BTreeSet::new()
+    fn init(&mut self, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
+        Ok(None)
     }
-    fn update(&mut self, _msg: &WidgetMsg, _context: &mut WidgetOrders, _ctx: &Context) {}
+    fn update(&mut self, _msg: &WidgetMsg, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
+        Ok(None)
+    }
     fn view(&self, ctx: &Context) -> seed::virtual_dom::Node<WidgetMsg>;
 }
 

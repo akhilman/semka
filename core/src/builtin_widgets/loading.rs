@@ -3,7 +3,6 @@ use crate::error::WidgetError;
 use crate::manifests::DocManifest;
 use crate::path::Path;
 use crate::widget::{Widget, WidgetFactory, WidgetMsg};
-use lazy_static::lazy_static;
 use seed::{prelude::*, *};
 
 #[derive(Debug)]

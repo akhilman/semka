@@ -1,10 +1,10 @@
 use crate::path::Path;
 use futures::future::{BoxFuture, Future, FutureExt};
 use std::any::Any;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 pub struct WidgetOrders {
-    pub(super) orders: VecDeque<WidgetCmd>,
+    pub(crate) orders: VecDeque<WidgetCmd>,
 }
 
 impl WidgetOrders {
@@ -36,8 +36,8 @@ impl WidgetOrders {
         )));
         self
     }
-    pub fn update_deps(&mut self, deps: Vec<Path>) -> &mut Self {
-        self.orders.push_front(WidgetCmd::UpdateDeps(deps));
+    pub fn update_deps(&mut self, deps: BTreeSet<Path>) -> &mut Self {
+        self.orders.push_front(WidgetCmd::UpdateDependencies(deps));
         self
     }
     pub fn skip(&mut self) -> &mut Self {
@@ -53,6 +53,6 @@ pub enum WidgetCmd {
     FetchText(FilePath),
     */
     PerformCmd(BoxFuture<'static, Box<dyn Any>>),
-    UpdateDeps(Vec<Path>),
+    UpdateDependencies(BTreeSet<Path>),
     Skip,
 }
