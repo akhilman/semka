@@ -2,6 +2,7 @@ use crate::context::Context;
 use crate::error::WidgetError;
 use crate::manifests::DocManifest;
 use crate::path::Path;
+use crate::utils;
 use crate::widget::{Widget, WidgetFactory, WidgetMsg};
 use seed::{prelude::*, *};
 
@@ -16,7 +17,7 @@ impl Loading {
 
 impl Widget for Loading {
     fn view(&self, _ctx: &Context) -> Node<WidgetMsg> {
-        div!["Loading..."]
+        utils::show_spinner()
     }
 }
 

@@ -2,8 +2,26 @@ use crate::constants;
 use crate::error;
 use crate::manifests;
 use crate::path;
+use bytes::Bytes;
 use futures::future::{Future, TryFutureExt};
-use std::borrow::Borrow;
+
+pub fn fetch_bytes<U>(url: U) -> impl Future<Output = Result<Bytes, error::FetchError>>
+where
+    U: ToString,
+{
+    let url = url.to_string();
+    let url_clone = url.clone();
+    async {
+        let bytes = seed::browser::fetch::fetch(url)
+            .await?
+            .check_status()?
+            .bytes()
+            .await
+            .map(Bytes::from)?;
+        Ok(bytes)
+    }
+    .map_err(|err| error::FetchError::from_seed(url_clone, err))
+}
 
 pub fn fetch_json<U, T>(url: U) -> impl Future<Output = Result<T, error::FetchError>>
 where
@@ -13,12 +31,29 @@ where
     let url = url.to_string();
     let url_clone = url.clone();
     async {
-        let manifest = seed::browser::fetch::fetch(url)
+        let value = seed::browser::fetch::fetch(url)
             .await?
             .check_status()?
             .json::<T>()
             .await?;
-        Ok(manifest)
+        Ok(value)
+    }
+    .map_err(|err| error::FetchError::from_seed(url_clone, err))
+}
+
+pub fn fetch_text<U>(url: U) -> impl Future<Output = Result<String, error::FetchError>>
+where
+    U: ToString,
+{
+    let url = url.to_string();
+    let url_clone = url.clone();
+    async {
+        let text = seed::browser::fetch::fetch(url)
+            .await?
+            .check_status()?
+            .text()
+            .await?;
+        Ok(text)
     }
     .map_err(|err| error::FetchError::from_seed(url_clone, err))
 }
@@ -43,4 +78,9 @@ pub async fn fetch_doc_manifest(
         .add(constants::DOC_MANIFEST_FILE);
     let manifest: manifests::DocManifest = fetch_json(doc_manifest_path).await?;
     Ok(manifest)
+}
+
+pub fn show_spinner<Ms>() -> seed::prelude::Node<Ms> {
+    use seed::{prelude::*, *};
+    div!["Loading..."]
 }

@@ -1,4 +1,5 @@
 use crate::builtin_widgets;
+use crate::constants::DOC_DIR;
 use crate::context::Context;
 use crate::error::FetchError;
 use crate::manifests::{DocManifest, SiteManifest};
@@ -124,8 +125,19 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
                 .send_msg(Msg::WidgetReady(path))
                 .send_msg(Msg::Error(error));
         }
-        Msg::WidgetMsg(path, _msg) => {
+        Msg::WidgetMsg(path, msg) => {
             log!("WidgetMsg", path);
+            if let Some(widget) = model.widgets.get_mut(&path) {
+                match widget.update(msg, ctx) {
+                    Ok(Some(w_orders)) => perform_widget_orders(w_orders, path, orders),
+                    Ok(None) => (),
+                    Err(err) => {
+                        orders.send_msg(Msg::WidgetFailed(path, err));
+                    }
+                }
+            } else {
+                error!("Got message for unknown widget", path);
+            }
         }
         Msg::UpdateDependencies(path, dependencies) => {
             log!("UpdateDependencies", path, dependencies);
@@ -250,6 +262,29 @@ fn perform_widget_orders(w_orders: WidgetOrders, doc_path: Path, orders: &mut im
     w_orders.orders.into_iter().for_each(|cmd| {
         let doc_path = doc_path.clone();
         match cmd {
+            WidgetCmd::FetchBytes(path) => {
+                let full_file_path = Path::new().add(DOC_DIR).join(doc_path.head()).join(&path);
+                let fut = utils::fetch_bytes(full_file_path).map(enc!((doc_path) move |result| {
+                    Msg::WidgetMsg(doc_path.clone(), WidgetMsg::FetchBytesResult(path, result))
+                }));
+                orders.perform_cmd(fut);
+            }
+            WidgetCmd::FetchJson(path) => {
+                let full_file_path = Path::new().add(DOC_DIR).join(doc_path.head()).join(&path);
+                let fut = utils::fetch_json::<_, serde_json::Value>(full_file_path).map(
+                    enc!((doc_path) move |result| {
+                        Msg::WidgetMsg(doc_path.clone(), WidgetMsg::FetchJsonResult(path, result))
+                    }),
+                );
+                orders.perform_cmd(fut);
+            }
+            WidgetCmd::FetchText(path) => {
+                let full_file_path = Path::new().add(DOC_DIR).join(doc_path.head()).join(&path);
+                let fut = utils::fetch_text(full_file_path).map(enc!((doc_path) move |result| {
+                    Msg::WidgetMsg(doc_path.clone(), WidgetMsg::FetchTextResult(path, result))
+                }));
+                orders.perform_cmd(fut);
+            }
             WidgetCmd::PerformCmd(fut) => {
                 orders.perform_cmd(
                     fut.map(|result| Msg::WidgetMsg(doc_path, WidgetMsg::CmdResult(result))),

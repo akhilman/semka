@@ -13,4 +13,14 @@ pub mod path;
 pub mod utils;
 pub mod widget;
 
-pub use app::Launcher;
+pub mod prelude {
+    pub use super::app::Launcher;
+    pub use super::constants::*;
+    pub use super::context::Context;
+    pub use super::error::*;
+    pub use super::manifests::*;
+    pub use super::path::Path;
+    pub use super::utils::*;
+    pub use super::widget::*;
+    pub use failure::Error;
+}
