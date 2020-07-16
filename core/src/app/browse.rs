@@ -109,6 +109,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
         }
         Msg::WidgetFailed(path, error) => {
             log!("WidgetFailed", path, error);
+            /*
+            if let Some(fetch_err) = error.as_fail().downcast_ref::<FetchError>() {
+                if fetch_err.is_not_found && path != NOT_FOUND_PATH {
+                    TODO load 404 page
+                }
+            }
+            */
             model.dependencies.remove(&path);
             model
                 .widgets

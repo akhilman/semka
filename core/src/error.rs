@@ -1,6 +1,5 @@
 use failure::Fail;
 
-
 #[derive(Fail, Debug, Clone)]
 #[fail(display = "Can not parse path: {}", _0)]
 pub struct ParsePathError(&'static str);
@@ -66,19 +65,7 @@ impl FetchError {
             E::RequestError(v) => FetchError::RequestError(url, format!("{:?}", v)),
             E::StatusError(status) => {
                 use seed::browser::fetch::StatusCategory;
-                if status.code == 404 {
-                    FetchError::NotFound {
-                        url,
-                        code: status.code,
-                        text: status.text,
-                    }
-                } else if status.code == 403 {
-                    FetchError::Forbidden {
-                        url,
-                        code: status.code,
-                        text: status.text,
-                    }
-                } else if status.category == StatusCategory::ClientError {
+                if status.category == StatusCategory::ClientError {
                     FetchError::ClientError {
                         url,
                         code: status.code,
@@ -98,6 +85,19 @@ impl FetchError {
                     }
                 }
             }
+        }
+    }
+
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            FetchError::ClientError { code, .. } => code.eq(&404),
+            _ => false,
+        }
+    }
+    pub fn is_forbidden(&self) -> bool {
+        match self {
+            FetchError::ClientError { code, .. } => code.eq(&403),
+            _ => false,
         }
     }
 }
