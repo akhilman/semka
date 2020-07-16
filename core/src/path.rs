@@ -81,6 +81,12 @@ impl Path {
             Self(Rc::new(new_inner))
         }
     }
+    pub fn head(&self) -> Self {
+        self.iter().take(1).collect()
+    }
+    pub fn tail(&self) -> Self {
+        self.iter().skip(1).collect()
+    }
     pub fn releative_to(self, base: impl AsRef<Self>) -> Result<Self, PathError> {
         match (base.as_ref().is_absolute(), self.is_absolute()) {
             (true, true) | (false, false) => {

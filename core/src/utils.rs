@@ -28,16 +28,15 @@ pub async fn fetch_site_manifest() -> Result<manifests::SiteManifest, error::Fet
 }
 
 pub async fn fetch_doc_manifest(
-    doc_path: impl Borrow<path::Path>,
+    doc_name: impl AsRef<str>,
 ) -> Result<manifests::DocManifest, error::FetchError> {
-    let doc_name = doc_path
-        .borrow()
-        .iter()
-        .nth(0)
-        .ok_or(error::FetchError::RequestError(
-            doc_path.borrow().to_string(),
-            "Document path is empty".to_string(),
-        ))?;
+    let doc_name = doc_name.as_ref();
+    if doc_name.is_empty() {
+        return Err(error::FetchError::RequestError(
+            doc_name.to_string(),
+            "Document name is empty".to_string(),
+        ));
+    }
     let doc_manifest_path = path::Path::new()
         .add(constants::DOC_DIR)
         .add(doc_name)

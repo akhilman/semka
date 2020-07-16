@@ -200,7 +200,7 @@ fn load_document(doc_path: Path, model: &mut Model, orders: &mut impl Orders<Msg
     model
         .widgets
         .insert(doc_path.clone(), loading_widget(&doc_path, ctx));
-    let fut = utils::fetch_doc_manifest(doc_path.clone())
+    let fut = utils::fetch_doc_manifest(doc_path.head().to_string())
         .map(enc!((doc_path) move |result| {Msg::DocManifestFetched(doc_path, result)}));
     orders.perform_cmd(fut);
 }
