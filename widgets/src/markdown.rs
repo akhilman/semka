@@ -30,19 +30,17 @@ impl Widget for Markdown {
     }
     fn update(&mut self, msg: WidgetMsg, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
         match msg {
-            WidgetMsg::FetchTextResult(_fpath, result) => match result {
-                Ok(text) => {
-                    let deps = div![md!(&text)].fold(|node, children_deps: Vec<BTreeSet<Path>>| {
-                        include_path(&node)
-                            .into_iter()
-                            .chain(children_deps.into_iter().map(|c| c.into_iter()).flatten())
-                            .collect()
-                    });
-                    self.text.replace(text);
-                    Ok(Some(WidgetOrders::new().update_deps(deps)))
-                }
-                Err(err) => Err(err.into()),
-            },
+            WidgetMsg::FetchTextResult(_fpath, Ok(text)) => {
+                let deps = div![md!(&text)].fold(|node, children_deps: Vec<BTreeSet<Path>>| {
+                    include_path(&node)
+                        .into_iter()
+                        .chain(children_deps.into_iter().map(|c| c.into_iter()).flatten())
+                        .collect()
+                });
+                self.text.replace(text);
+                Ok(Some(WidgetOrders::new().update_deps(deps)))
+            }
+            WidgetMsg::FetchTextResult(_fpath, Err(err)) => Err(err.into()),
             _ => Ok(None),
         }
     }
