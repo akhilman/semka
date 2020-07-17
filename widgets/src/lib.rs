@@ -4,7 +4,6 @@
 #![allow(clippy::wildcard_imports)]
 
 pub mod markdown;
-mod utils;
 
 pub mod widgets {
     pub use super::markdown::MarkdownFactory;

@@ -1,6 +1,5 @@
 use crate::path::Path;
-use lazy_static::lazy_static;
-use regex::Regex;
+use crate::utils::is_url_absolute;
 use seed::prelude::*;
 
 pub trait NodeExt<T> {
@@ -48,13 +47,10 @@ impl<Ms: 'static> NodeExt<Node<Ms>> for Node<Ms> {
 }
 
 pub(crate) fn to_absolute_href<Ms>(node: Node<Ms>, base_path: &Path) -> Node<Ms> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"^(/|[\w]+:|[\w]+//).*$").unwrap();
-    }
     match node {
         Node::Element(mut el) => {
             if let Some(AtValue::Some(href)) = el.attrs.vals.get_mut(&At::Href) {
-                if !RE.is_match(href) {
+                if !is_url_absolute(&href) {
                     if let Ok(path) = href.parse::<Path>() {
                         *href = base_path.join(path).to_string();
                     }

@@ -4,6 +4,8 @@ use crate::manifests;
 use crate::path;
 use bytes::Bytes;
 use futures::future::{Future, TryFutureExt};
+use lazy_static::lazy_static;
+use regex::Regex;
 
 pub fn fetch_bytes<U>(url: U) -> impl Future<Output = Result<Bytes, error::FetchError>>
 where
@@ -83,4 +85,11 @@ pub async fn fetch_doc_manifest(
 pub fn show_spinner<Ms>() -> seed::prelude::Node<Ms> {
     use seed::{prelude::*, *};
     div!["Loading..."]
+}
+
+pub fn is_url_absolute(url: impl AsRef<str>) -> bool {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^(/|[\w]+:|[\w]+//).*$").unwrap();
+    }
+    RE.is_match(url.as_ref())
 }

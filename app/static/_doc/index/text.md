@@ -1,11 +1,15 @@
 # Title
 
-This is my text.
+This is `index/`
 
-Hi there!
+- one
+- two
+- three
 
-- [index/](index/)
-- [index/foo/](index/foo/)
-- [foo/](foo/)
+This page includes `foo/`
+```html
+![foo/](foo/)
+```
+![foo/](foo/)
 
-<include doc="foo"/>
+![img](https://i.insider.com/5478518969beddc42b9bd370?width=640)

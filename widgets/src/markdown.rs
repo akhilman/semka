@@ -1,4 +1,3 @@
-use crate::utils;
 use seed::{prelude::*, *};
 use semka_core::prelude::*;
 use std::collections::BTreeSet;
@@ -34,7 +33,7 @@ impl Widget for Markdown {
             WidgetMsg::FetchTextResult(_fpath, result) => match result {
                 Ok(text) => {
                     let deps = div![md!(&text)].fold(|node, children_deps: Vec<BTreeSet<Path>>| {
-                        utils::include_path(node)
+                        include_path(&node)
                             .into_iter()
                             .chain(children_deps.into_iter().map(|c| c.into_iter()).flatten())
                             .collect()
@@ -49,9 +48,7 @@ impl Widget for Markdown {
     }
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         match &self.text {
-            Some(text) => {
-                div![md!(text)].deep_map(|node| utils::resolve_include(node, dependencies))
-            }
+            Some(text) => div![md!(text)].deep_map(|node| resolve_include(node, dependencies)),
             None => show_spinner(),
         }
     }
@@ -72,5 +69,31 @@ impl WidgetFactory for MarkdownFactory {
     }
     fn create(&self, _: Path, _: DocManifest) -> Result<Box<dyn Widget>, WidgetError> {
         Ok(Markdown::new())
+    }
+}
+
+fn include_path(node: &Node<WidgetMsg>) -> Option<Path> {
+    match node {
+        Node::Element(el) => Some(el),
+        _ => None,
+    }
+    .filter(|el| el.tag == Tag::Img)
+    .map(|el| el.attrs.vals.get(&At::Src))
+    .flatten()
+    .map(|at| match at {
+        AtValue::Some(src) => Some(src),
+        _ => None,
+    })
+    .flatten()
+    .filter(|url| !is_url_absolute(url))
+    .map(|url| url.parse::<Path>().ok())
+    .flatten()
+}
+
+fn resolve_include(node: Node<WidgetMsg>, dependencies: Dependencies) -> Node<WidgetMsg> {
+    if let Some(doc_path) = include_path(&node) {
+        dependencies.view(&doc_path)
+    } else {
+        node
     }
 }
