@@ -3,8 +3,8 @@ use crate::error::WidgetError;
 use crate::manifests::DocManifest;
 use crate::path::Path;
 use crate::utils;
-use crate::widget::{Widget, WidgetFactory, WidgetMsg};
-use seed::{prelude::*, *};
+use crate::widget::{Dependencies, Widget, WidgetFactory, WidgetMsg};
+use seed::prelude::Node;
 
 #[derive(Debug)]
 pub struct Loading {}
@@ -16,7 +16,7 @@ impl Loading {
 }
 
 impl Widget for Loading {
-    fn view(&self, _ctx: &Context) -> Node<WidgetMsg> {
+    fn view(&self, _dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         utils::show_spinner()
     }
 }

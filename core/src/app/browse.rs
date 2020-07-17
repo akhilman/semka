@@ -5,7 +5,7 @@ use crate::error::FetchError;
 use crate::manifests::{DocManifest, SiteManifest};
 use crate::path::Path;
 use crate::utils;
-use crate::widget::{Widget, WidgetCmd, WidgetMsg, WidgetOrders};
+use crate::widget::{Dependencies, Widget, WidgetCmd, WidgetMsg, WidgetOrders};
 use enclose::enc;
 use failure::{format_err, AsFail, Error};
 use futures::FutureExt;
@@ -97,7 +97,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
                 .widgets
                 .get_mut(&path)
                 .ok_or(format_err!("Widget for \"{}\" not found", &path))
-                .and_then(|widget| widget.init(ctx));
+                .and_then(|widget| widget.init(&path, ctx));
             match result {
                 Ok(Some(w_orders)) => {
                     perform_widget_orders(w_orders, path, orders);
@@ -174,10 +174,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
 // `view` describes what to display.
 pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
     let doc_path = model.full_path.clone();
+    let dependencies = Dependencies::new(&model.widgets, ctx);
     let root_node = model
         .widgets
         .get(&doc_path)
-        .map(|widget| widget.view(ctx))
+        .map(|widget| widget.view(dependencies, ctx))
         .unwrap_or(div![format!("Widget for \"{}\" not found", &doc_path)]);
     div![
         C!["counter"],

@@ -6,18 +6,24 @@ use bytes::Bytes;
 use failure::Error;
 use std::any::Any;
 
-pub mod orders;
+mod dependencies;
+mod orders;
 
+pub use dependencies::Dependencies;
 pub use orders::{WidgetCmd, WidgetOrders};
 
 pub trait Widget: std::fmt::Debug {
-    fn init(&mut self, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
+    fn init(&mut self, _path: &Path, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
         Ok(None)
     }
     fn update(&mut self, _msg: WidgetMsg, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
         Ok(None)
     }
-    fn view(&self, ctx: &Context) -> seed::virtual_dom::Node<WidgetMsg>;
+    fn view<'a>(
+        &'a self,
+        dependencies: Dependencies<'a>,
+        ctx: &'a Context,
+    ) -> seed::virtual_dom::Node<WidgetMsg>;
 }
 
 pub enum WidgetMsg {

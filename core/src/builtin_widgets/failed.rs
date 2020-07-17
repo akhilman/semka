@@ -1,6 +1,6 @@
 use crate::context::Context;
 use crate::path::Path;
-use crate::widget::{Widget, WidgetMsg};
+use crate::widget::{Dependencies, Widget, WidgetMsg};
 use failure::AsFail;
 use seed::{prelude::*, *};
 
@@ -20,7 +20,7 @@ impl Failed {
 }
 
 impl Widget for Failed {
-    fn view(&self, _ctx: &Context) -> Node<WidgetMsg> {
+    fn view(&self, _dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         div![
             h2!["Error"],
             div![format!("Document: {}", self.doc_path)],

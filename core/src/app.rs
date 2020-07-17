@@ -1,5 +1,6 @@
 use crate::context::{Context, Registry};
 use crate::manifests::SiteManifest;
+use crate::node_ext::{to_absolute_href, NodeExt};
 use crate::path::Path;
 use crate::utils;
 use crate::widget::WidgetFactory;
@@ -261,6 +262,7 @@ fn view(model: &Model) -> Node<Msg> {
         Mode::About => about::view(&model.ctx),
         Mode::Loading => div!["Loading..."],
     }
+    .deep_map(|node| to_absolute_href(node, &model.ctx.base_path))
 }
 
 // ------ ------
