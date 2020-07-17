@@ -6,46 +6,37 @@ const CSS_FILE: &str = "style.css";
 
 #[derive(Debug)]
 pub struct Stylesheet {
+    path_head: Path,
     path_tail: Path,
-    stylesheet: Option<String>,
 }
 
 impl Stylesheet {
     pub fn new() -> Box<dyn Widget> {
         Box::new(Self {
+            path_head: Path::new(),
             path_tail: Path::new(),
-            stylesheet: None,
         })
     }
 }
 
 impl Widget for Stylesheet {
     fn init(&mut self, doc_path: &Path, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
+        self.path_head = doc_path.head();
         self.path_tail = doc_path.tail();
-        Ok(Some(
-            WidgetOrders::new()
-                .fetch_text(CSS_FILE.parse()?)
-                .update_deps(vec![self.path_tail.clone()].into_iter().collect()),
-        ))
-    }
-    fn update(&mut self, msg: WidgetMsg, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
-        match msg {
-            WidgetMsg::FetchTextResult(_fpath, Ok(style)) => {
-                self.stylesheet.replace(style);
-                Ok(None)
-            }
-            WidgetMsg::FetchTextResult(_fpath, Err(err)) => Err(err.into()),
-            _ => Ok(None),
-        }
+        Ok(Some(WidgetOrders::new().update_deps(
+            vec![self.path_tail.clone()].into_iter().collect(),
+        )))
     }
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
-        match &self.stylesheet {
-            Some(style) => div![
-                raw!(format!("<style>{}</style>", style).as_str()),
-                dependencies.view(&self.path_tail)
-            ],
-            None => dependencies.view(&self.path_tail),
-        }
+        section![
+            C!["widget", "stylesheet", "semka-0.1-stylesheet"],
+            raw!(format!(
+                r#"<link rel="stylesheet" href="{}/{}/{}"/>"#,
+                DOC_DIR, self.path_head, CSS_FILE
+            )
+            .as_str()),
+            dependencies.view(&self.path_tail)
+        ]
     }
 }
 
