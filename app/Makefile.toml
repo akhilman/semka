@@ -4,6 +4,14 @@ PORT = "8000"
 [config]
 skip_core_tasks = true
 
+# ---- START ----
+
+[tasks.start]
+run_task = { name = ["build", "serve"] }
+
+[tasks.start_release]
+run_task = { name = ["build_release", "serve"] }
+
 # ---- BASIC ----
 
 [tasks.watch]
