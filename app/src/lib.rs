@@ -17,6 +17,7 @@ pub fn start() {
     // Mount the `app` to the element with the `id` "app".
     Launcher::new()
         .add_widget(widgets::MarkdownFactory::new())
+        .add_widget(widgets::StylesheetFactory::new())
         .root_element("app")
         .start();
 }
