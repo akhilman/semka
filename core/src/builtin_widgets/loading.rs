@@ -4,7 +4,7 @@ use crate::manifests::DocManifest;
 use crate::path::Path;
 use crate::utils;
 use crate::widget::{Dependencies, Widget, WidgetFactory, WidgetMsg};
-use seed::prelude::Node;
+use seed::{prelude::*, *};
 
 #[derive(Debug)]
 pub struct Loading {}
@@ -17,7 +17,10 @@ impl Loading {
 
 impl Widget for Loading {
     fn view(&self, _dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
-        utils::show_spinner()
+        div![
+            C!["widget", "loading", "semka-0.1-loading"],
+            utils::show_spinner()
+        ]
     }
 }
 

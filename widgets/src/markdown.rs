@@ -7,16 +7,14 @@ const TEXT_FILE: &str = "text.md";
 
 #[derive(Debug)]
 pub struct Markdown {
-    path_tail: Path,
-    path_head: Path,
+    doc_path: Path,
     text: Option<String>,
 }
 
 impl Markdown {
     pub fn new() -> Box<dyn Widget> {
         Box::new(Self {
-            path_head: Path::new(),
-            path_tail: Path::new(),
+            doc_path: Path::new(),
             text: None,
         })
     }
@@ -24,8 +22,7 @@ impl Markdown {
 
 impl Widget for Markdown {
     fn init(&mut self, doc_path: &Path, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
-        self.path_head = doc_path.head();
-        self.path_tail = doc_path.tail();
+        self.doc_path = doc_path.clone();
         Ok(Some(WidgetOrders::new().fetch_text(TEXT_FILE.parse()?)))
     }
     fn update(&mut self, msg: WidgetMsg, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
@@ -45,10 +42,19 @@ impl Widget for Markdown {
         }
     }
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
-        match &self.text {
-            Some(text) => div![md!(text)].deep_map(|node| resolve_include(node, dependencies)),
-            None => show_spinner(),
-        }
+        div![
+            C!["widget", "markdown", "semka-0.1-markdown"],
+            attrs! {
+                At::Custom("data-doc-path".into()) => self.doc_path.to_string(),
+            },
+            match &self.text {
+                Some(text) => md!(text)
+                    .into_iter()
+                    .map(|node| node.deep_map(|node| resolve_include(node, dependencies)))
+                    .collect(),
+                None => vec![show_spinner()],
+            }
+        ]
     }
 }
 

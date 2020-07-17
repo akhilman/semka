@@ -22,6 +22,7 @@ impl Failed {
 impl Widget for Failed {
     fn view(&self, _dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         div![
+            C!["widget", "failed", "semka-0.1-failed"],
             h2!["Error"],
             div![format!("Document: {}", self.doc_path)],
             pre![&self.error]

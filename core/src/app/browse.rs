@@ -174,22 +174,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
 // `view` describes what to display.
 pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
     let doc_path = model.full_path.clone();
-    let dependencies = Dependencies::new(&model.widgets, ctx);
-    let root_node = model
-        .widgets
-        .get(&doc_path)
-        .map(|widget| widget.view(dependencies, ctx))
-        .unwrap_or(div![format!("Widget for \"{}\" not found", &doc_path)]);
-    div![
-        C!["counter"],
-        div![span!["Current path: "], span![model.page_path.to_string()],],
-        div![span!["Full path: "], span![model.full_path.to_string()],],
-        div![span!["Base path: "], span![ctx.base_path.to_string()],],
-        div![pre![
-            serde_json::to_string_pretty(&ctx.site_manifest).unwrap()
-        ]],
-        root_node.map_msg(move |msg| Msg::WidgetMsg(doc_path, msg)),
-    ]
+    Dependencies::new(&model.widgets, ctx)
+        .view(&doc_path)
+        .map_msg(move |msg| Msg::WidgetMsg(doc_path, msg))
 }
 
 // ------ ------
