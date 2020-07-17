@@ -1,6 +1,7 @@
 use crate::utils;
 use seed::{prelude::*, *};
 use semka_core::prelude::*;
+use std::collections::BTreeSet;
 
 const CAN_HANDLE: &'static [&'static str] = &["semka-0.1-markdown"];
 const TEXT_FILE: &str = "text.md";
@@ -32,7 +33,12 @@ impl Widget for Markdown {
         match msg {
             WidgetMsg::FetchTextResult(_fpath, result) => match result {
                 Ok(text) => {
-                    let deps = utils::find_include_deps(div![md!(&text)]);
+                    let deps = div![md!(&text)].fold(|node, children_deps: Vec<BTreeSet<Path>>| {
+                        utils::include_path(node)
+                            .into_iter()
+                            .chain(children_deps.into_iter().map(|c| c.into_iter()).flatten())
+                            .collect()
+                    });
                     self.text.replace(text);
                     Ok(Some(WidgetOrders::new().update_deps(deps)))
                 }

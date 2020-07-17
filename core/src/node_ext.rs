@@ -7,7 +7,9 @@ pub trait NodeExt<T> {
     fn deep_map<F>(self, func: F) -> T
     where
         F: Fn(T) -> T + Copy;
-    fn flatten(self) -> Vec<T>;
+    fn fold<F, O>(self, func: F) -> O
+    where
+        F: Fn(T, Vec<O>) -> O + Copy;
 }
 
 impl<Ms: 'static> NodeExt<Node<Ms>> for Node<Ms> {
@@ -29,20 +31,18 @@ impl<Ms: 'static> NodeExt<Node<Ms>> for Node<Ms> {
         }
     }
 
-    fn flatten(self) -> Vec<Node<Ms>> {
+    fn fold<F, O>(self, func: F) -> O
+    where
+        F: Fn(Node<Ms>, Vec<O>) -> O + Copy,
+    {
         match self {
             Node::Element(mut el) => {
                 let mut children = vec![];
                 std::mem::swap(&mut children, &mut el.children);
-                let nodes: Vec<Node<Ms>> = children
-                    .into_iter()
-                    .map(|node| node.flatten().into_iter())
-                    .flatten()
-                    .chain(std::iter::once(Node::Element(el)))
-                    .collect();
-                nodes
+                let children: Vec<O> = children.into_iter().map(|child| child.fold(func)).collect();
+                func(Node::Element(el), children)
             }
-            node => vec![node],
+            node => func(node, vec![]),
         }
     }
 }
