@@ -26,6 +26,7 @@ impl Widget for Markdown {
         Ok(Some(WidgetOrders::new().fetch_text(TEXT_FILE.parse()?)))
     }
     fn update(&mut self, msg: WidgetMsg, _ctx: &Context) -> Result<Option<WidgetOrders>, Error> {
+        assert!(!self.doc_path.is_empty(), "doc_path is empty");
         match msg {
             WidgetMsg::FetchTextResult(_fpath, Ok(text)) => {
                 let deps = div![md!(&text)].fold(|node, children_deps: Vec<BTreeSet<Path>>| {
@@ -42,6 +43,7 @@ impl Widget for Markdown {
         }
     }
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
+        assert!(!self.doc_path.is_empty(), "doc_path is empty");
         div![
             C!["widget", "markdown", "semka-0.1-markdown"],
             attrs! {

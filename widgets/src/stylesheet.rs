@@ -25,6 +25,7 @@ impl Widget for Stylesheet {
         )))
     }
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
+        assert!(!self.doc_path.is_empty(), "doc_path is empty");
         div![
             C!["widget", "stylesheet", "semka-0.1-stylesheet"],
             attrs! {
