@@ -3,6 +3,7 @@ use futures::future::{BoxFuture, Future, FutureExt};
 use std::any::Any;
 use std::collections::{BTreeSet, VecDeque};
 
+#[derive(Debug)]
 pub struct WidgetOrders {
     pub(crate) orders: VecDeque<WidgetCmd>,
 }
@@ -44,11 +45,16 @@ impl WidgetOrders {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub enum WidgetCmd {
     FetchBytes(Path),
     FetchJson(Path),
     FetchText(Path),
-    PerformCmd(BoxFuture<'static, Box<dyn Any>>),
+    PerformCmd(
+        #[derivative(Debug(format_with = "crate::utils::fmt_as_type_name"))]
+        BoxFuture<'static, Box<dyn Any>>,
+    ),
     UpdateDependencies(BTreeSet<Path>),
     Skip,
 }

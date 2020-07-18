@@ -21,6 +21,7 @@ pub struct Model {}
 //    Update
 // ------ ------
 
+#[derive(Debug)]
 pub enum Msg {
     UrlChanged(Url),
     SiteManifestChanged(SiteManifest),

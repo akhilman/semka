@@ -3,6 +3,9 @@
 // but some rules are too "annoying" or are not applicable for your case.)
 #![allow(clippy::wildcard_imports)]
 
+#[macro_use]
+extern crate derivative;
+
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
 #[cfg(feature = "wee_alloc")]

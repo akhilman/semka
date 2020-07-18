@@ -31,6 +31,7 @@ pub trait Widget: std::fmt::Debug {
     }
 }
 
+#[derive(Debug)]
 pub enum WidgetMsg {
     CmdResult(Box<dyn Any>),
     FetchBytesResult(Path, Result<Bytes, FetchError>),

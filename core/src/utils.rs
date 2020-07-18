@@ -93,3 +93,7 @@ pub fn is_url_absolute(url: impl AsRef<str>) -> bool {
     }
     RE.is_match(url.as_ref())
 }
+
+pub fn fmt_as_type_name<T>(_: &T, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<T>())
+}

@@ -52,6 +52,7 @@ pub struct Model {
 // ------ ------
 
 // `Msg` describes the different events you can modify state with.
+#[derive(Debug)]
 pub enum Msg {
     PageChanged(Path),
     SiteManifestChanged(SiteManifest),
@@ -66,18 +67,16 @@ pub enum Msg {
 
 // `update` describes how to handle each `Msg`.
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
+    // log!("browse::update", msg);
     match msg {
-        Msg::PageChanged(page) => {
-            log!("PageChanged", page);
+        Msg::PageChanged(_) => {
             update_current_page(model, orders, ctx);
         }
         Msg::ShowError(err) => error!(err),
-        Msg::SiteManifestChanged(manifest) => {
-            log!("SiteManifestChanged", manifest);
+        Msg::SiteManifestChanged(_) => {
             update_current_page(model, orders, ctx);
         }
         Msg::DocManifestFetched(path, result) => {
-            log!("DocManifestFetched", path, result);
             let result = result.map_err(Error::from).and_then(enc!(
                 (path) | manifest | resolve_widget(path, manifest, ctx)
             ));
@@ -92,7 +91,6 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             }
         }
         Msg::WidgetReady(path) => {
-            log!("WidgetReady", path);
             let result = model
                 .widgets
                 .get_mut(&path)
@@ -101,7 +99,6 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             handle_widget_result(result, path, orders);
         }
         Msg::WidgetFailed(path, error) => {
-            log!("WidgetFailed", path, error);
             /*
             if let Some(fetch_err) = error.as_fail().downcast_ref::<FetchError>() {
                 if fetch_err.is_not_found && path != NOT_FOUND_PATH {
@@ -119,7 +116,6 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
                 .send_msg(Msg::ShowError(error));
         }
         Msg::WidgetMsg(path, msg) => {
-            log!("WidgetMsg", path);
             if let Some(widget) = model.widgets.get_mut(&path) {
                 let result = widget.update(msg, ctx);
                 handle_widget_result(result, path, orders);
@@ -128,7 +124,6 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             }
         }
         Msg::UpdateDependencies(path, dependencies) => {
-            log!("UpdateDependencies", path, dependencies);
             use std::collections::btree_map::Entry;
             match model.dependencies.entry(path.clone()) {
                 Entry::Vacant(entry) => {
@@ -147,9 +142,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
                 }
             }
         }
-        Msg::DependenciesChanged(path) => {
-            log!("DependenciesChanged", path);
-        }
+        Msg::DependenciesChanged(_) => {}
     }
 }
 
@@ -247,6 +240,7 @@ fn handle_widget_result(
 }
 
 fn perform_widget_orders(w_orders: WidgetOrders, doc_path: Path, orders: &mut impl Orders<Msg>) {
+    log!("perform_widget_orders", doc_path, w_orders.orders);
     w_orders.orders.into_iter().for_each(|cmd| {
         let doc_path = doc_path.clone();
         match cmd {

@@ -132,6 +132,7 @@ enum Mode {
 // ------ ------
 
 // `Msg` describes the different events you can modify state with.
+#[derive(Debug)]
 enum Msg {
     BrowseMsg(browse::Msg),
     EditMsg(edit::Msg),
@@ -142,6 +143,7 @@ enum Msg {
 
 // `update` describes how to handle each `Msg`.
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+    log!("app::update", msg);
     match msg {
         Msg::SiteManifestChanged(site_manifest) => {
             model.ctx.site_manifest = site_manifest;
