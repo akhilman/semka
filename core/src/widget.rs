@@ -24,6 +24,11 @@ pub trait Widget: std::fmt::Debug {
         dependencies: Dependencies<'a>,
         ctx: &'a Context,
     ) -> seed::virtual_dom::Node<WidgetMsg>;
+
+    fn widget_name(&self) -> &'static str;
+    fn classes(&self) -> &'static [&'static str] {
+        &[]
+    }
 }
 
 pub enum WidgetMsg {

@@ -6,6 +6,9 @@ use crate::utils;
 use crate::widget::{Dependencies, Widget, WidgetFactory, WidgetMsg};
 use seed::{prelude::*, *};
 
+const WIDGET_NAME: &'static str = "semka-0.1-loading";
+const WIDGET_CLASSES: &'static [&'static str] = &[WIDGET_NAME, "loading"];
+
 #[derive(Debug)]
 pub struct Loading {}
 
@@ -17,10 +20,14 @@ impl Loading {
 
 impl Widget for Loading {
     fn view(&self, _dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
-        div![
-            C!["widget", "loading", "semka-0.1-loading"],
-            utils::show_spinner()
-        ]
+        div![utils::show_spinner()]
+    }
+
+    fn widget_name(&self) -> &'static str {
+        WIDGET_NAME
+    }
+    fn classes(&self) -> &'static [&'static str] {
+        WIDGET_CLASSES
     }
 }
 

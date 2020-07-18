@@ -98,15 +98,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
                 .get_mut(&path)
                 .ok_or(format_err!("Widget for \"{}\" not found", &path))
                 .and_then(|widget| widget.init(&path, ctx));
-            match result {
-                Ok(Some(w_orders)) => {
-                    perform_widget_orders(w_orders, path, orders);
-                }
-                Ok(None) => (),
-                Err(err) => {
-                    orders.send_msg(Msg::WidgetFailed(path, err));
-                }
-            }
+            handle_widget_result(result, path, orders);
         }
         Msg::WidgetFailed(path, error) => {
             log!("WidgetFailed", path, error);
@@ -128,13 +120,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
         Msg::WidgetMsg(path, msg) => {
             log!("WidgetMsg", path);
             if let Some(widget) = model.widgets.get_mut(&path) {
-                match widget.update(msg, ctx) {
-                    Ok(Some(w_orders)) => perform_widget_orders(w_orders, path, orders),
-                    Ok(None) => (),
-                    Err(err) => {
-                        orders.send_msg(Msg::WidgetFailed(path, err));
-                    }
-                }
+                let result = widget.update(msg, ctx);
+                handle_widget_result(result, path, orders);
             } else {
                 error!("Got message for unknown widget", path);
             }
@@ -174,7 +161,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
 // `view` describes what to display.
 pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
     let doc_path = model.full_path.clone();
-    Dependencies::new(&model.widgets, ctx)
+    Dependencies::new(&model.widgets, &model.dependencies, ctx)
         .view(&doc_path)
         .map_msg(move |msg| Msg::WidgetMsg(doc_path, msg))
 }
@@ -243,6 +230,22 @@ fn current_page_or_index(ctx: &Context) -> Path {
         ctx.site_manifest.index_page.clone()
     } else {
         "index".parse().unwrap()
+    }
+}
+
+fn handle_widget_result(
+    result: Result<Option<WidgetOrders>, Error>,
+    path: Path,
+    orders: &mut impl Orders<Msg>,
+) {
+    match result {
+        Ok(Some(w_orders)) => {
+            perform_widget_orders(w_orders, path, orders);
+        }
+        Ok(None) => (),
+        Err(err) => {
+            orders.send_msg(Msg::WidgetFailed(path, err));
+        }
     }
 }
 

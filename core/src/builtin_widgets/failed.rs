@@ -4,6 +4,9 @@ use crate::widget::{Dependencies, Widget, WidgetMsg};
 use failure::AsFail;
 use seed::{prelude::*, *};
 
+const WIDGET_NAME: &'static str = "failed";
+const WIDGET_CLASSES: &'static [&'static str] = &[WIDGET_NAME];
+
 #[derive(Debug)]
 pub struct Failed {
     doc_path: Path,
@@ -22,10 +25,20 @@ impl Failed {
 impl Widget for Failed {
     fn view(&self, _dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         div![
-            C!["widget", "failed", "semka-0.1-failed"],
+            C!["failed-widget"],
+            attrs! {
+                At::Custom("data-doc-path".into()) => self.doc_path.to_string(),
+            },
             h2!["Error"],
             div![format!("Document: {}", self.doc_path)],
             pre![&self.error]
         ]
+    }
+
+    fn widget_name(&self) -> &'static str {
+        WIDGET_NAME
+    }
+    fn classes(&self) -> &'static [&'static str] {
+        WIDGET_CLASSES
     }
 }

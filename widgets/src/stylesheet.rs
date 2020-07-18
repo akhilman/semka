@@ -1,7 +1,9 @@
 use seed::{prelude::*, *};
 use semka_core::prelude::*;
 
-const CAN_HANDLE: &'static [&'static str] = &["semka-0.1-stylesheet"];
+const WIDGET_NAME: &'static str = "semka-0.1-stylesheet";
+const WIDGET_CLASSES: &'static [&'static str] = &[WIDGET_NAME, "stylesheet"];
+const CAN_HANDLE: &'static [&'static str] = &[WIDGET_NAME];
 const CSS_FILE: &str = "style.css";
 
 #[derive(Debug)]
@@ -27,10 +29,6 @@ impl Widget for Stylesheet {
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         assert!(!self.doc_path.is_empty(), "doc_path is empty");
         div![
-            C!["widget", "stylesheet", "semka-0.1-stylesheet"],
-            attrs! {
-                At::Custom("data-doc-path".into()) => self.doc_path.to_string(),
-            },
             raw!(format!(
                 r#"<link rel="stylesheet" href="{}/{}/{}"/>"#,
                 DOC_DIR,
@@ -40,6 +38,13 @@ impl Widget for Stylesheet {
             .as_str()),
             dependencies.view(&self.doc_path.tail())
         ]
+    }
+
+    fn widget_name(&self) -> &'static str {
+        WIDGET_NAME
+    }
+    fn classes(&self) -> &'static [&'static str] {
+        WIDGET_CLASSES
     }
 }
 

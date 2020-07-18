@@ -2,7 +2,9 @@ use seed::{prelude::*, *};
 use semka_core::prelude::*;
 use std::collections::BTreeSet;
 
-const CAN_HANDLE: &'static [&'static str] = &["semka-0.1-markdown"];
+const WIDGET_NAME: &'static str = "semka-0.1-markdown";
+const WIDGET_CLASSES: &'static [&'static str] = &[WIDGET_NAME, "markdown"];
+const CAN_HANDLE: &'static [&'static str] = &[WIDGET_NAME];
 const TEXT_FILE: &str = "text.md";
 
 #[derive(Debug)]
@@ -44,19 +46,20 @@ impl Widget for Markdown {
     }
     fn view(&self, dependencies: Dependencies, _ctx: &Context) -> Node<WidgetMsg> {
         assert!(!self.doc_path.is_empty(), "doc_path is empty");
-        div![
-            C!["widget", "markdown", "semka-0.1-markdown"],
-            attrs! {
-                At::Custom("data-doc-path".into()) => self.doc_path.to_string(),
-            },
-            match &self.text {
-                Some(text) => md!(text)
-                    .into_iter()
-                    .map(|node| node.deep_map(|node| resolve_include(node, dependencies)))
-                    .collect(),
-                None => vec![show_spinner()],
-            }
-        ]
+        div![match &self.text {
+            Some(text) => md!(text)
+                .into_iter()
+                .map(|node| node.deep_map(|node| resolve_include(node, dependencies)))
+                .collect(),
+            None => vec![show_spinner()],
+        }]
+    }
+
+    fn widget_name(&self) -> &'static str {
+        WIDGET_NAME
+    }
+    fn classes(&self) -> &'static [&'static str] {
+        WIDGET_CLASSES
     }
 }
 
