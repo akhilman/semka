@@ -37,9 +37,6 @@ impl PathInner {
         self.all_parts.push_str(part);
         self.ends_of_parts.push(self.all_parts.len())
     }
-    fn len(&self) -> usize {
-        self.ends_of_parts.len()
-    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -118,7 +115,7 @@ impl Path {
         self.0.ends_of_parts.is_empty()
     }
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.0.ends_of_parts.len()
     }
 }
 
