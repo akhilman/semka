@@ -23,7 +23,7 @@ pub fn init(_url: Url, _orders: &mut impl Orders<Msg>, ctx: &Context) -> Model {
         .site_manifest
         .master_page
         .clone()
-        .join(page_path.clone());
+        .join(&page_path.clone());
     Model {
         page_path,
         full_path,
@@ -173,11 +173,7 @@ pub fn view(model: &Model, ctx: &Context) -> Node<Msg> {
 
 fn update_current_page(model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &Context) {
     model.page_path = current_page_or_index(ctx);
-    model.full_path = ctx
-        .site_manifest
-        .master_page
-        .clone()
-        .join(model.page_path.clone());
+    model.full_path = ctx.site_manifest.master_page.clone().join(&model.page_path);
 
     if !model.widgets.contains_key(&model.full_path) {
         load_document(model.full_path.clone(), model, orders, ctx);
@@ -255,14 +251,14 @@ fn perform_widget_orders(w_orders: WidgetOrders, doc_path: Path, orders: &mut im
         let doc_path = doc_path.clone();
         match cmd {
             WidgetCmd::FetchBytes(path) => {
-                let full_file_path = Path::new().add(DOC_DIR).join(doc_path.head()).join(&path);
+                let full_file_path = Path::new().add(DOC_DIR).join(&doc_path.head()).join(&path);
                 let fut = utils::fetch_bytes(full_file_path).map(enc!((doc_path) move |result| {
                     Msg::WidgetMsg(doc_path.clone(), WidgetMsg::FetchBytesResult(path, result))
                 }));
                 orders.perform_cmd(fut);
             }
             WidgetCmd::FetchJson(path) => {
-                let full_file_path = Path::new().add(DOC_DIR).join(doc_path.head()).join(&path);
+                let full_file_path = Path::new().add(DOC_DIR).join(&doc_path.head()).join(&path);
                 let fut = utils::fetch_json::<_, serde_json::Value>(full_file_path).map(
                     enc!((doc_path) move |result| {
                         Msg::WidgetMsg(doc_path.clone(), WidgetMsg::FetchJsonResult(path, result))
@@ -271,7 +267,7 @@ fn perform_widget_orders(w_orders: WidgetOrders, doc_path: Path, orders: &mut im
                 orders.perform_cmd(fut);
             }
             WidgetCmd::FetchText(path) => {
-                let full_file_path = Path::new().add(DOC_DIR).join(doc_path.head()).join(&path);
+                let full_file_path = Path::new().add(DOC_DIR).join(&doc_path.head()).join(&path);
                 let fut = utils::fetch_text(full_file_path).map(enc!((doc_path) move |result| {
                     Msg::WidgetMsg(doc_path.clone(), WidgetMsg::FetchTextResult(path, result))
                 }));

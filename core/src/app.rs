@@ -82,7 +82,7 @@ fn init(registry: Registry, url: Url, orders: &mut impl Orders<Msg>) -> Model {
         .subscribe(|url_changed: subs::UrlChanged| Msg::UrlChanged(url_changed.0));
 
     let base_path = Path::new_absolute().join(
-        orders
+        &orders
             .clone_base_path()
             .iter()
             .filter(|p| !p.is_empty())
@@ -241,7 +241,7 @@ fn path_to_mode(page_path: &Path) -> Mode {
 }
 
 fn url_to_page_path(url: &Url, base_path: &Path) -> Path {
-    let abs_path: Path = Path::new_absolute().join(url.path().iter().collect::<Path>());
+    let abs_path: Path = Path::new_absolute().join(&url.path().iter().collect::<Path>());
     abs_path.releative_to(base_path).unwrap()
 }
 
@@ -281,7 +281,7 @@ fn view(model: &Model) -> Node<Msg> {
 fn fix_site_manifest(manifest: SiteManifest) -> SiteManifest {
     fn to_releative(path: Path) -> Path {
         if path.is_absolute() {
-            path.releative_to(Path::new_absolute()).unwrap()
+            path.releative_to(&Path::new_absolute()).unwrap()
         } else {
             path
         }

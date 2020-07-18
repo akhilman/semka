@@ -52,7 +52,7 @@ pub(crate) fn to_absolute_href<Ms>(node: Node<Ms>, base_path: &Path) -> Node<Ms>
             if let Some(AtValue::Some(href)) = el.attrs.vals.get_mut(&At::Href) {
                 if !is_url_absolute(&href) {
                     if let Ok(path) = href.parse::<Path>() {
-                        *href = base_path.join(path).to_string();
+                        *href = base_path.join(&path).to_string();
                     }
                 }
             }

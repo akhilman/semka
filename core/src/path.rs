@@ -61,20 +61,20 @@ impl Path {
         new_inner.push(part.as_ref());
         Self(Rc::new(new_inner))
     }
-    pub fn join(&self, other: impl AsRef<Self>) -> Self {
-        if other.as_ref().is_absolute() {
-            other.as_ref().clone()
+    pub fn join(&self, other: &Self) -> Self {
+        if other.is_absolute() {
+            other.clone()
         } else if self.is_absolute() && self.is_empty() {
             let new_inner = PathInner {
                 absoulute: true,
-                ..(*other.as_ref().0).clone()
+                ..(*other.0).clone()
             };
             Self(Rc::new(new_inner))
-        } else if other.as_ref().is_empty() {
+        } else if other.is_empty() {
             self.clone()
         } else {
             let mut new_inner = (*self.0).clone();
-            other.as_ref().iter().for_each(|part| new_inner.push(part));
+            other.iter().for_each(|part| new_inner.push(part));
             Self(Rc::new(new_inner))
         }
     }
@@ -88,23 +88,21 @@ impl Path {
     pub fn tail(&self) -> Self {
         self.iter().skip(1).collect()
     }
-    pub fn releative_to(self, base: impl AsRef<Self>) -> Result<Self, PathError> {
-        match (base.as_ref().is_absolute(), self.is_absolute()) {
-            (true, true) | (false, false) => {
-                Ok(releative_path(base.as_ref().iter(), self.iter()).collect())
-            }
+    pub fn releative_to(self, base: &Self) -> Result<Self, PathError> {
+        match (base.is_absolute(), self.is_absolute()) {
+            (true, true) | (false, false) => Ok(releative_path(base.iter(), self.iter()).collect()),
             _ => Err(PathError("Can not find releative path")),
         }
     }
-    pub fn is_subpath(&self, rhs: impl AsRef<Self>) -> bool {
-        match (self.is_absolute(), rhs.as_ref().is_absolute()) {
-            (true, true) | (false, false) => is_subpath(self.iter(), rhs.as_ref().iter()),
+    pub fn is_subpath(&self, rhs: &Self) -> bool {
+        match (self.is_absolute(), rhs.is_absolute()) {
+            (true, true) | (false, false) => is_subpath(self.iter(), rhs.iter()),
             _ => false,
         }
     }
-    pub fn is_superpath(&self, rhs: impl AsRef<Self>) -> bool {
-        match (self.is_absolute(), rhs.as_ref().is_absolute()) {
-            (true, true) | (false, false) => is_subpath(rhs.as_ref().iter(), self.iter()),
+    pub fn is_superpath(&self, rhs: &Self) -> bool {
+        match (self.is_absolute(), rhs.is_absolute()) {
+            (true, true) | (false, false) => is_subpath(rhs.iter(), self.iter()),
             _ => false,
         }
     }
@@ -122,12 +120,6 @@ impl Path {
 impl Default for Path {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl AsRef<Path> for Path {
-    fn as_ref(&self) -> &Path {
-        self
     }
 }
 
@@ -154,7 +146,7 @@ impl std::str::FromStr for Path {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let path: Path = s.split('/').filter(|s| !s.is_empty()).collect();
         Ok(if s.starts_with("/") {
-            Path::new_absolute().join(path)
+            Path::new_absolute().join(&path)
         } else {
             path
         })
