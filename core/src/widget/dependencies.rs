@@ -1,8 +1,9 @@
+use crate::builtin_widgets;
 use crate::constants::MAX_WIDGET_RECURSION;
 use crate::context::Context;
 use crate::path::Path;
 use crate::widget::{Widget, WidgetMsg};
-use failure::{format_err, AsFail};
+use failure::format_err;
 use seed::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -71,14 +72,13 @@ impl<'a> Dependencies<'a> {
             Err(format_err!("Required document \"{}\" not loaded", path))
         }
         .unwrap_or_else(|err| {
-            failed_widget(self.doc_path.cloned().unwrap_or(Path::new_absolute()), &err)
-                .view(self.dig_in(path), self.ctx)
+            builtin_widgets::Failed::new(
+                self.doc_path.cloned().unwrap_or(Path::new_absolute()),
+                &err,
+            )
+            .view(self.dig_in(path), self.ctx)
         });
         node.add_attr("data-doc-path", path.to_string());
         node
     }
-}
-
-fn failed_widget(doc_path: Path, error: &impl AsFail) -> Box<dyn Widget> {
-    crate::builtin_widgets::Failed::new(doc_path, error)
 }

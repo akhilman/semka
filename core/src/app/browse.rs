@@ -7,7 +7,7 @@ use crate::path::Path;
 use crate::utils;
 use crate::widget::{Dependencies, Widget, WidgetCmd, WidgetMsg, WidgetOrders};
 use enclose::enc;
-use failure::{format_err, AsFail, Error};
+use failure::{format_err, Error};
 use futures::FutureExt;
 use seed::{prelude::*, *};
 use std::collections::{BTreeMap, BTreeSet};
@@ -110,9 +110,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             }
             */
             model.dependencies.remove(&path);
-            model
-                .widgets
-                .insert(path.clone(), failed_widget(path.clone(), &error));
+            model.widgets.insert(
+                path.clone(),
+                builtin_widgets::Failed::new(path.clone(), &error),
+            );
             orders
                 .send_msg(Msg::WidgetReady(path))
                 .send_msg(Msg::Error(error));
@@ -302,8 +303,4 @@ fn loading_widget(doc_path: &Path, ctx: &Context) -> Box<dyn Widget> {
         .map(|factory| factory.create(doc_path.clone(), manifest).ok())
         .flatten()
         .unwrap_or_else(builtin_widgets::Loading::new)
-}
-
-fn failed_widget(doc_path: Path, error: &impl AsFail) -> Box<dyn Widget> {
-    builtin_widgets::Failed::new(doc_path, error)
 }
