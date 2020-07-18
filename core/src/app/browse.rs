@@ -58,10 +58,10 @@ pub enum Msg {
     DocManifestFetched(Path, Result<DocManifest, FetchError>),
     WidgetReady(Path),
     WidgetFailed(Path, Error),
-    WidgetMsg(Path, WidgetMsg),
     UpdateDependencies(Path, BTreeSet<Path>),
     DependenciesChanged(Path),
-    Error(Error),
+    WidgetMsg(Path, WidgetMsg),
+    ShowError(Error), // @TODO use subscribtion for errors
 }
 
 // `update` describes how to handle each `Msg`.
@@ -71,7 +71,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             log!("PageChanged", page);
             update_current_page(model, orders, ctx);
         }
-        Msg::Error(err) => error!(err),
+        Msg::ShowError(err) => error!(err),
         Msg::SiteManifestChanged(manifest) => {
             log!("SiteManifestChanged", manifest);
             update_current_page(model, orders, ctx);
@@ -116,7 +116,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>, ctx: &
             );
             orders
                 .send_msg(Msg::WidgetReady(path))
-                .send_msg(Msg::Error(error));
+                .send_msg(Msg::ShowError(error));
         }
         Msg::WidgetMsg(path, msg) => {
             log!("WidgetMsg", path);

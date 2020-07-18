@@ -133,11 +133,11 @@ enum Mode {
 
 // `Msg` describes the different events you can modify state with.
 enum Msg {
-    Browse(browse::Msg),
-    Edit(edit::Msg),
+    BrowseMsg(browse::Msg),
+    EditMsg(edit::Msg),
+    UrlChanged(Url),
     SiteManifestChanged(SiteManifest),
     ShowError(Error),
-    UrlChanged(Url),
 }
 
 // `update` describes how to handle each `Msg`.
@@ -150,7 +150,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 browse::update(
                     browse::Msg::SiteManifestChanged(site_manifest.clone()),
                     browse_model,
-                    &mut orders.proxy(Msg::Browse),
+                    &mut orders.proxy(Msg::BrowseMsg),
                     &model.ctx,
                 )
             }
@@ -158,7 +158,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 edit::update(
                     edit::Msg::SiteManifestChanged(site_manifest.clone()),
                     edit_model,
-                    &mut orders.proxy(Msg::Edit),
+                    &mut orders.proxy(Msg::EditMsg),
                     &model.ctx,
                 )
             }
@@ -173,7 +173,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
             match mode {
                 Mode::Edit => {
-                    let mut edit_orders = orders.proxy(Msg::Edit);
+                    let mut edit_orders = orders.proxy(Msg::EditMsg);
                     let mut edit_model = model
                         .edit
                         .take()
@@ -187,7 +187,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     model.edit.replace(edit_model);
                 }
                 Mode::Browse => {
-                    let mut browse_orders = orders.proxy(Msg::Browse);
+                    let mut browse_orders = orders.proxy(Msg::BrowseMsg);
                     let mut browse_model = model.browse.take().unwrap_or_else(|| {
                         browse::init(url.clone(), &mut browse_orders, &model.ctx)
                     });
@@ -203,24 +203,24 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             };
             model.mode = mode;
         }
-        Msg::Browse(browse_msg) => {
+        Msg::BrowseMsg(browse_msg) => {
             if let Some(browse_model) = &mut model.browse {
                 browse::update(
                     browse_msg,
                     browse_model,
-                    &mut orders.proxy(Msg::Browse),
+                    &mut orders.proxy(Msg::BrowseMsg),
                     &model.ctx,
                 );
             } else {
                 orders.send_msg(Msg::ShowError(format_err!("Browse mode not initialized")));
             }
         }
-        Msg::Edit(edit_msg) => {
+        Msg::EditMsg(edit_msg) => {
             if let Some(edit_model) = &mut model.edit {
                 edit::update(
                     edit_msg,
                     edit_model,
-                    &mut orders.proxy(Msg::Edit),
+                    &mut orders.proxy(Msg::EditMsg),
                     &model.ctx,
                 );
             } else {
@@ -256,14 +256,14 @@ fn view(model: &Model) -> Node<Msg> {
     match model.mode {
         Mode::Browse => {
             if let Some(browse_model) = &model.browse {
-                browse::view(browse_model, &model.ctx).map_msg(Msg::Browse)
+                browse::view(browse_model, &model.ctx).map_msg(Msg::BrowseMsg)
             } else {
                 div!["View mode not initialized"]
             }
         }
         Mode::Edit => {
             if let Some(edit_model) = &model.edit {
-                edit::view(edit_model, &model.ctx).map_msg(Msg::Edit)
+                edit::view(edit_model, &model.ctx).map_msg(Msg::EditMsg)
             } else {
                 div!["Edit mode not initialized"]
             }
