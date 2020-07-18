@@ -240,6 +240,7 @@ fn handle_widget_result(
 }
 
 fn perform_widget_orders(w_orders: WidgetOrders, doc_path: Path, orders: &mut impl Orders<Msg>) {
+    #[cfg(debug_assertions)]
     log!("perform_widget_orders", doc_path, w_orders.orders);
     w_orders.orders.into_iter().for_each(|cmd| {
         let doc_path = doc_path.clone();

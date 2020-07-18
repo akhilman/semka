@@ -143,6 +143,7 @@ enum Msg {
 
 // `update` describes how to handle each `Msg`.
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+    #[cfg(debug_assertions)]
     log!("app::update", msg);
     match msg {
         Msg::SiteManifestChanged(site_manifest) => {
